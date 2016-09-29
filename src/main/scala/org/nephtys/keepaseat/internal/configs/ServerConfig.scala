@@ -11,13 +11,11 @@ trait ServerConfig {
 
   def https : Boolean
 
-  def httpsOnly : Option[Boolean]
-
   def port : Int
 
   //assume "web" as default value
   def pathToStaticWebDirectory : String
 
 
-  def filepathToDatabaseWithoutFileEnding : String
+  def filepathToDatabaseWithoutFileEnding : Option[String]
 }

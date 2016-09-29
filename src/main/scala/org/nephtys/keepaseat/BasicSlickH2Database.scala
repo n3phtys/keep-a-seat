@@ -3,7 +3,7 @@ import java.io.File
 import java.nio.file.{Files, Paths}
 import java.util.concurrent.atomic.AtomicInteger
 
-import org.nephtys.keepaseat.internal.eventdata.Event
+import org.nephtys.keepaseat.internal.eventdata.{Event, EventElementBlock}
 import slick.lifted.ProvenShape
 
 import scala.collection.mutable
@@ -32,7 +32,7 @@ class BasicSlickH2Database(db : Database)  extends Databaseable{
 
   override def update(event: Event): Future[Boolean] = ???
 
-  override def create(eventWithoutID: Event): Future[Event] = ???
+  override def create(eventWithoutID: Event): Future[Option[Event]] = ???
 
   override def delete(id: Long): Future[Boolean] = ???
 
@@ -108,5 +108,9 @@ object BasicSlickH2Database {
     }
     val events = TableQuery[Events]
 
+  }
+
+  object queries {
+    
   }
 }

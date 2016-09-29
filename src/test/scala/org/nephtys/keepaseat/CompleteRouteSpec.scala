@@ -33,7 +33,6 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest{
 
 
   implicit val serverConfigSource : () => ServerConfig = () => new ServerConfig {
-    override def httpsOnly: Option[Boolean] = None
 
     //assume "web" as default value
     override def pathToStaticWebDirectory: String = "src/test/resources/web"
@@ -42,7 +41,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest{
 
     override def port: Int = 1234
 
-    override def filepathToDatabaseWithoutFileEnding: String = "target/testdb" //should not be used anyway
+    override def filepathToDatabaseWithoutFileEnding: Option[String] = None//should not be used anyway
   }
 
   val staticRoute = new StaticRoute().extractRoute

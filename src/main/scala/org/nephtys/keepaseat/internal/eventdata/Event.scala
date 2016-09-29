@@ -11,9 +11,8 @@ package org.nephtys.keepaseat.internal.eventdata
   */
 case class Event(
                 id : Long,
-                from : Long,
-                to : Long,
-                elements : Seq[String], //has to be trimmed and lowercase, control if exists
+                elements : Seq[EventElementBlock], //all blocks SHOULD (but are not required to) be on the same from/to
+                // values
                 name : String,
                 email : String,
                 telephone : String,
@@ -22,7 +21,19 @@ case class Event(
                 ) {
 
   //TODO: check these in validator before creating events
-  require(elements.nonEmpty)
-  require(elements.forall(s => s!= null && s.nonEmpty && s.toLowerCase().trim().equals(s)))
+  //require(elements.nonEmpty)
+  //require(elements.forall(s => s!= null && s.nonEmpty && s.toLowerCase().trim().equals(s)))
 
 }
+
+/**
+  * this is remapped when writing to the database into a second table with a foreign key to Event
+  * @param element
+  * @param from
+  * @param to
+  */
+case class EventElementBlock(
+                            element : String,
+                            from : Long,
+                            to : Long
+                            )
