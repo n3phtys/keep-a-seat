@@ -10,6 +10,7 @@ import scala.concurrent.Future
 trait Databaseable {
 
   def retrieve(fromDate : Long = 0, toDate : Long = Long.MaxValue) : Future[IndexedSeq[Event]]
+  def retrieveSpecific(id : Long) : Future[Option[Event]]
   def update(event : Event) : Future[Boolean]
   def create(eventWithoutID : Event) : Future[Event]
   def delete(id : Long) : Future[Boolean]

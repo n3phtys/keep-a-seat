@@ -17,4 +17,7 @@ trait ServerConfig {
 
   //assume "web" as default value
   def pathToStaticWebDirectory : String
+
+
+  def filepathToDatabaseWithoutFileEnding : String
 }

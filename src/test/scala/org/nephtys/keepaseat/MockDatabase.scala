@@ -18,4 +18,5 @@ class MockDatabase extends Databaseable {
 
   override def delete(id: Long): Future[Boolean] = ???
 
+  override def retrieveSpecific(id: Long): Future[Option[Event]] = ???
 }

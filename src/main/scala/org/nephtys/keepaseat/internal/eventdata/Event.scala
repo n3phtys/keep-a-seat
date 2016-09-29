@@ -11,17 +11,18 @@ package org.nephtys.keepaseat.internal.eventdata
   */
 case class Event(
                 id : Long,
-                from : String,
-                to : String,
-                element : Seq[String], //has to be trimmed and lowercase
+                from : Long,
+                to : Long,
+                elements : Seq[String], //has to be trimmed and lowercase, control if exists
                 name : String,
                 email : String,
                 telephone : String,
-                commentary : String
+                commentary : String,
+                confirmedBySupseruser : Boolean
                 ) {
 
   //TODO: check these in validator before creating events
-  require(element.nonEmpty)
-  require(element.forall(s => s!= null && s.nonEmpty && s.toLowerCase().trim().equals(s)))
+  require(elements.nonEmpty)
+  require(elements.forall(s => s!= null && s.nonEmpty && s.toLowerCase().trim().equals(s)))
 
 }

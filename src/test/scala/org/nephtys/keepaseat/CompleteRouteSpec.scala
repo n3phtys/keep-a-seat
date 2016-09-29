@@ -41,6 +41,8 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest{
     override def https: Boolean = false
 
     override def port: Int = 1234
+
+    override def filepathToDatabaseWithoutFileEnding: String = "target/testdb" //should not be used anyway
   }
 
   val staticRoute = new StaticRoute().extractRoute
