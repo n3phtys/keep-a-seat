@@ -10,6 +10,7 @@ package org.nephtys.keepaseat.internal.eventdata
   * Created by nephtys on 9/28/16.
   */
 case class Event(
+                id : Long,
                 from : String,
                 to : String,
                 element : Seq[String], //has to be trimmed and lowercase

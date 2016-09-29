@@ -4,11 +4,14 @@ import org.nephtys.keepaseat.internal.eventdata.Event
 import scala.concurrent.Future
 
 /**
-  * Created by nephtys on 9/28/16.
+  * simple implementation of the Databaseable trait, using an embedded h2 database (file based) and synchronization
+  * features
+  *
+  * Created by nephtys on 9/29/16.
   */
-class MockDatabase extends Databaseable {
+class BasicSlickH2Database(dbString : String)  extends Databaseable{
+  //TODO: implement with slick and embedded h2 and all required code
 
-  //TODO: implement with mutable (threadsafe?) map and returning Future.successful from it
 
   override def retrieve(fromDate: Long, toDate: Long): Future[IndexedSeq[Event]] = ???
 
@@ -17,5 +20,4 @@ class MockDatabase extends Databaseable {
   override def create(eventWithoutID: Event): Future[Event] = ???
 
   override def delete(id: Long): Future[Boolean] = ???
-
 }

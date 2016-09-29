@@ -5,4 +5,5 @@ package org.nephtys.keepaseat
   */
 class MockMailer extends MailNotifiable{
 
+  //TODO: implement with lists that can be queried from outside to show the order of calls here
 }
