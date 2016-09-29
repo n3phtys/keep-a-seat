@@ -13,10 +13,8 @@ trait ServerConfig {
 
   def httpsOnly : Option[Boolean]
 
-  //ip, hostname, url, even localhost
-  def url : String
   def port : Int
 
-  //can be empty
-  def rootpath : Option[String]
+  //assume "web" as default value
+  def pathToStaticWebDirectory : String
 }
