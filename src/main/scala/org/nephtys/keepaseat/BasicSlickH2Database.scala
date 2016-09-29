@@ -79,38 +79,39 @@ object BasicSlickH2Database {
 
 
   object tableDefinitions {
-    class ElementsToEvent(tag : Tag) extends Table[(Long, Long, String)](tag, "ELEMENTSTOEVENT") {
-      def id = column[Long]("ELEMENTEVENT_ID", O.PrimaryKey)
+    class EventElementBlocks(tag : Tag) extends Table[(Long, Long, String, Long, Long)](tag,
+      "ELEMENTSTOEVENT") {
+      def ownid = column[Long]("ELEMENTEVENT_ID", O.PrimaryKey)
 
-      def headItem = column[Long]("EVENT_ID")
+      def eventID = column[Long]("EVENT_ID")
 
-      def event = foreignKey("EVENT_FK", headItem, events)(_.id)
+      def event = foreignKey("EVENT_FK", eventID, events)(_.id)
+
+      def from = column[Long]("TIME_FROM")
+      def to = column[Long]("TIME_TO")
 
       def elementName = column[String]("ELEMENT_NAME")
 
-      def * = (id, headItem, elementName)
+      def * = (ownid, eventID, elementName, from, to)
 
     }
 
 
-    class Events(tag: Tag) extends Table[(Long, Long, Long, String, String, String, String, Boolean)](tag, "EVENTS") {
+    class Events(tag: Tag) extends Table[(Long, String, String, String, String, Boolean)](tag, "EVENTS") {
       def id = column[Long]("EVENT_ID", O.PrimaryKey) // This is the primary key column
-      def from = column[Long]("TIME_FROM")
-      def to = column[Long]("TIME_TO")
-      //TODO: elements
       def name = column[String]("USER_NAME")
       def email = column[String]("EMAIL")
       def telephone = column[String]("TELEPHONE")
       def commentary = column[String]("COMMENTARY")
       def confirmedBySupseruser = column[Boolean]("CONFIRMED")
       // Every table needs a * projection with the same type as the table's type parameter
-      def * = (id, from, to, name, email, telephone, commentary, confirmedBySupseruser)
+      def * = (id, name, email, telephone, commentary, confirmedBySupseruser)
     }
     val events = TableQuery[Events]
 
   }
 
   object queries {
-    
+
   }
 }
