@@ -28,7 +28,14 @@ class BasicSlickH2Database(db : Database)  extends Databaseable{
   //TODO: implement with slick and embedded h2 and all required code
 
 
-  override def retrieve(fromDate: Long, toDate: Long): Future[IndexedSeq[Event]] = ???
+  override def retrieve(fromDate: Long, toDate: Long): Future[IndexedSeq[Event]] = db.run(BasicSlickH2Database
+    .queries.getBetween(fromDate, toDate)
+    .result).map(_.groupBy(_._1).map(a => {
+    def eventraw = a._1
+    def blocksraw = a._2.map(_._2).toIndexedSeq
+    val blocks : IndexedSeq[EventElementBlock] = blocksraw.map(p => EventElementBlock(p._3, p._4, p._5))
+    Event(eventraw._1, blocks, eventraw._2, eventraw._3, eventraw._4, eventraw._5, eventraw._6)
+  }).toIndexedSeq)
 
   override def update(event: Event): Future[Boolean] = ???
 
@@ -36,7 +43,13 @@ class BasicSlickH2Database(db : Database)  extends Databaseable{
 
   override def delete(id: Long): Future[Boolean] = ???
 
-  override def retrieveSpecific(id: Long): Future[Option[Event]] = ???
+  override def retrieveSpecific(id: Long): Future[Option[Event]] = db.run(BasicSlickH2Database.queries.getWithID(id)
+    .result).map(_.groupBy(_._1).headOption.map(a => {
+    def eventraw = a._1
+    def blocksraw = a._2.map(_._2).toIndexedSeq
+    val blocks : IndexedSeq[EventElementBlock] = blocksraw.map(p => EventElementBlock(p._3, p._4, p._5))
+    Event(eventraw._1, blocks, eventraw._2, eventraw._3, eventraw._4, eventraw._5, eventraw._6)
+  }))
 }
 
 /**
@@ -65,7 +78,8 @@ object BasicSlickH2Database {
       //db created, now create schema if file was non-existing before
       if (Files.notExists(Paths.get(filepath + ".h2.db"))) {
         //TODO: this is actually not a smart solution to this problem. Should be improved
-        Await.result(db.run(DBIO.seq(tableDefinitions.events.schema.create)), Duration.apply(1, "minute"))
+        Await.result(db.run(DBIO.seq((tableDefinitions.events.schema ++ tableDefinitions.blocks.schema).create)),
+          Duration.apply(1, "minute"))
       }
       db
     })
@@ -95,6 +109,7 @@ object BasicSlickH2Database {
       def * = (ownid, eventID, elementName, from, to)
 
     }
+    val blocks = TableQuery[EventElementBlocks]
 
 
     class Events(tag: Tag) extends Table[(Long, String, String, String, String, Boolean)](tag, "EVENTS") {
@@ -113,5 +128,11 @@ object BasicSlickH2Database {
 
   object queries {
 
+    def getWithID(lid : Long) = tableDefinitions.events.join(tableDefinitions.blocks).on(_.id === _.ownid).filter(_
+      ._1.id === lid)
+
+    def getBetween(from : Long, to : Long) = tableDefinitions.events.join(tableDefinitions.blocks).on(_
+      .id === _
+      .ownid).filterNot(b =>  b._2.from > to || b._2.to < from)
   }
 }
