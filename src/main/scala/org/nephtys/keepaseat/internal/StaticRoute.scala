@@ -15,8 +15,10 @@ import org.nephtys.keepaseat.internal.configs.ServerConfig
   */
 class StaticRoute()(implicit serverConfigSource : () => ServerConfig) {
 
+  //TODO: BasicAuth check
+
+
   def extractRoute : Route = {
-    println(serverConfigSource.apply().pathToStaticWebDirectory)
     getFromDirectory(serverConfigSource.apply().pathToStaticWebDirectory) ~ pathSingleSlash(
       get(redirect("index.html", PermanentRedirect))
     )
