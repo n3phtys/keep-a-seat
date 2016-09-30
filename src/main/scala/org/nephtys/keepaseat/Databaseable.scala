@@ -11,9 +11,9 @@ trait Databaseable {
 
   def retrieve(fromDate : Long = 0, toDate : Long = Long.MaxValue) : Future[IndexedSeq[Event]]
   def retrieveSpecific(id : Long) : Future[Option[Event]]
-  def update(event : Event) : Future[Boolean]
+  def update(event : Event) : Future[Option[Event]]
   def create(eventWithoutID : Event) : Future[Option[Event]] //can return NONE if not finding any place in the DB
-  def delete(id : Long) : Future[Boolean]
+  def delete(id : Long) : Future[Option[Event]]
 
   /**
     * return true if update was successful
@@ -21,7 +21,7 @@ trait Databaseable {
     * @param confirmstatus
     * @return
     */
-  def updateConfirmation(eventID : Long, confirmstatus : Boolean) : Future[Boolean]
+  def updateConfirmation(eventID : Long, confirmstatus : Boolean) : Future[Option[Event]]
 
 }
 

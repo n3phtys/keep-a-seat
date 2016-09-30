@@ -39,14 +39,14 @@ class BasicSlickH2Database(db: Database) extends Databaseable {
     Event(eventraw._1, blocks, eventraw._2, eventraw._3, eventraw._4, eventraw._5, eventraw._6)
   }).toIndexedSeq)
 
-  override def update(event: Event): Future[Boolean] = {
+  override def update(event: Event): Future[Option[Event]] = {
     retrieveSpecific(event.id).map(_.isDefined).flatMap(b => if (b) {
       val updateBlocks = db.run(BasicSlickH2Database.queries.updateBlocks(event.id, event.elements))
       val updateEvent = db.run(BasicSlickH2Database.queries.updateEvent(event))
       val fseq: Future[_] = Future.sequence(Seq(updateBlocks, updateEvent))
-      fseq.map(a => b)
+      fseq.map(a => Some(event))
     } else {
-      Future.successful(b)
+      Future.successful(None)
     })
   }
 
@@ -76,12 +76,12 @@ class BasicSlickH2Database(db: Database) extends Databaseable {
     }
   }
 
-  override def delete(id: Long): Future[Boolean] = {
-    retrieveSpecific(id).map(_.isDefined).flatMap(b => {
-      if (b) {
+  override def delete(id: Long): Future[Option[Event]] = {
+    retrieveSpecific(id).flatMap(b => {
+      if (b.isDefined) {
         val deleteBlocks: Future[Int] = db.run(BasicSlickH2Database.queries.removeBlocks(id))
         val deleteEvent: Future[Int] = db.run(BasicSlickH2Database.queries.removeElement(id))
-        Future.sequence(Seq(deleteBlocks, deleteEvent)).map(i => b)
+        Future.sequence(Seq(deleteBlocks, deleteEvent)).map(i =>  b)
       } else {
         Future.successful(b)
       }
@@ -96,7 +96,14 @@ class BasicSlickH2Database(db: Database) extends Databaseable {
     Event(eventraw._1, blocks, eventraw._2, eventraw._3, eventraw._4, eventraw._5, eventraw._6)
   }))
 
-  override def updateConfirmation(eventID: Long, confirmstatus: Boolean): Future[Boolean] = ???
+  /**
+    * return true if update was successful
+    *
+    * @param eventID
+    * @param confirmstatus
+    * @return
+    */
+  override def updateConfirmation(eventID: Long, confirmstatus: Boolean): Future[Option[Event]] = ??? //TODO: implement
 }
 
 /**

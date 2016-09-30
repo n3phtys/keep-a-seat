@@ -118,6 +118,10 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest{
       commentary =  "Some comment to make",
         randomNumber = 1337.asInstanceOf[Long])
 
+    def examplereservation2 = examplereservation.copy(elements = Seq(EventElementBlock("Bed A", 9999 + 1000000, 9999 + 1000000 +
+      (1000 *
+      3600 * 24))))
+
     def exampleconfirm(id : Long) : ConfirmationOrDeletion = SimpleConfirmationOrDeletion(id, confirmingThisReservation = true, 13)
       def exampledecline(id : Long) : ConfirmationOrDeletion = SimpleConfirmationOrDeletion(id, confirmingThisReservation = false, 14)
 
@@ -140,17 +144,33 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest{
     }
 
     "require superuser auth on confirm-reservation" in {
+      if(mockdatabase.getUnconfirmedEventID.isDefined) {
+        mockdatabase.create(examplereservation.toNewEventWithoutID)
+      }
       Get(jwtRouteContainer.computeLinkSubpathForSuperuserConfirmation(ConfirmationOrDeletion.makeUrlencodedJWT
-      (exampleconfirm(mockdatabase.getUnconfirmedEventID)))) ~> jwtRoute ~> check {
+      (exampleconfirm(mockdatabase.getUnconfirmedEventID.get)))) ~> jwtRoute ~> check {
         rejection shouldEqual authmissingreject
       }
     }
 
     "work with superuser auth on confirm-reservation" in { //This does compile, red markers are intelliJ bugs
+      if(mockdatabase.getUnconfirmedEventID.isDefined) {
+        mockdatabase.create(examplereservation.toNewEventWithoutID)
+      }
       Get(jwtRouteContainer.computeLinkSubpathForSuperuserConfirmation(ConfirmationOrDeletion.makeUrlencodedJWT
-      (exampleconfirm(mockdatabase.getUnconfirmedEventID)))) ~> addCredentials(BasicHttpCredentials(superusername,
+      (exampleconfirm(mockdatabase.getUnconfirmedEventID.get)))) ~> addCredentials(BasicHttpCredentials(superusername,
         superuserpassword)) ~> jwtRoute ~> check {
         responseAs[String] shouldEqual jwtRouteContainer.confirmReservationText
+      }
+    }
+
+
+    "is rejected if the jwt is incomplete" in { //This does compile, red markers are intelliJ bugs
+      val long = jwtRouteContainer.computeLinkSubpathForEmailConfirmation(ReservationRequest.makeUrlencodedJWT
+      (examplereservation))
+      val short = long.substring(0, long.length / 2)
+      Get(short) ~> addCredentials(BasicHttpCredentials(username, userpassword)) ~> jwtRoute ~> check {
+        rejection shouldEqual akka.http.scaladsl.server.MalformedQueryParamRejection("jwt", "jwt unparsable")
       }
     }
 

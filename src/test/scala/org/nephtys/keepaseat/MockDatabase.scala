@@ -5,6 +5,7 @@ import org.nephtys.keepaseat.internal.eventdata.Event
 
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.util.Try
 
 /**
   * Created by nephtys on 9/28/16.
@@ -21,16 +22,16 @@ class MockDatabase extends Databaseable {
     event.elements.exists(b => Databaseable.intersect(fromDate, b.from, toDate, b.to))
   }).toIndexedSeq)
 
-  override def update(event: Event): Future[Boolean] = Future.successful({
+  override def update(event: Event): Future[Option[Event]] = Future.successful({
     if (db.contains(event.id)) {
       db.update(event.id, event)
-      true
+      Some(event)
     } else {
-      false
+      None
     }
   })
 
-  def getUnconfirmedEventID : Long = db.filterNot(_._2.confirmedBySupseruser).keys.min
+  def getUnconfirmedEventID : Option[Long] = Try(db.filterNot(_._2.confirmedBySupseruser).keys.min).toOption
 
   override def create(eventWithoutID: Event): Future[Option[Event]] = {
     val from  = eventWithoutID.elements.map(_.from).min
@@ -48,15 +49,8 @@ class MockDatabase extends Databaseable {
     )
   }
 
-  override def delete(id: Long): Future[Boolean] = {
-    retrieveSpecific(id).map(opt => {
-      if (opt.isDefined) {
-        db.remove(id)
-        true
-      } else {
-        false
-      }
-    })
+  override def delete(id: Long): Future[Option[Event]] = Future.successful {
+    db.remove(id)
   }
 
   def clearDatabase() : Unit =  {
@@ -65,13 +59,13 @@ class MockDatabase extends Databaseable {
 
   override def retrieveSpecific(id: Long): Future[Option[Event]] = Future.successful(db.get(id))
 
-  override def updateConfirmation(eventID: Long, confirmstatus: Boolean): Future[Boolean] = {
+  override def updateConfirmation(eventID: Long, confirmstatus: Boolean): Future[Option[Event]] = {
     retrieveSpecific(eventID).map((p : Option[Event]) => p match {
       case Some(event) => {
         db.update(eventID, event.copy(confirmedBySupseruser = confirmstatus))
-        true
+        Some(event)
       }
-      case None => false
+      case None => None
     })
   }
 }
