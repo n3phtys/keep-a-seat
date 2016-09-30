@@ -217,7 +217,7 @@ object BasicSlickH2Database {
     def updateEvent(updatedElement: Event) = {
       val q = tableDefinitions.events.filter(_.id === updatedElement.id).map(e => {
         (e.name, e.email, e.telephone, e.commentary, e.confirmedBySupseruser)
-      }).update(tupleWithOutID(updatedElement)))
+      }).update(tupleWithOutID(updatedElement))
       q
     }
 
