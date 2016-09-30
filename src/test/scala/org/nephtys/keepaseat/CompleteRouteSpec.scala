@@ -5,19 +5,35 @@ import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.http.scaladsl.server._
 import Directives._
-import org.nephtys.keepaseat.internal.StaticRoute
-import org.nephtys.keepaseat.internal.configs.ServerConfig
+import akka.http.scaladsl.model.headers.{BasicHttpCredentials, HttpChallenge, HttpChallenges}
+import akka.http.scaladsl.server.AuthenticationFailedRejection.CredentialsMissing
+import org.nephtys.cmac.BasicAuthHelper.LoginData
+import org.nephtys.cmac.MacSource
+import org.nephtys.keepaseat.internal.{LinkJWTRoute, StaticRoute}
+import org.nephtys.keepaseat.internal.configs.{PasswordConfig, ServerConfig}
+import org.nephtys.keepaseat.internal.eventdata.EventElementBlock
+import org.nephtys.keepaseat.internal.linkkeys.{ConfirmationOrDeletion, ReservationRequest, SimpleConfirmationOrDeletion, SimpleReservation}
 
 /**
   * Created by nephtys on 9/28/16.
   */
 class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest{
 
+  val username = "john"
+  val superusername = "superjohn"
+  val userpassword = "12345"
+  val superuserpassword ="678910"
+
+
   def readFile(filepath : String)  = {
     val source = scala.io.Source.fromFile(filepath, "utf-8")
     val lines = try source.mkString finally source.close()
     lines
   }
+
+  val secretKey = org.nephtys.cmac.HmacHelper.keys.generateNewKey(256, "HmacSHA256")
+  implicit val macSource : MacSource = new MacSource( () => secretKey)
+
 
   val indexHTMLString : String =  readFile("""src/test/resources/web/index.html""")
   assert(indexHTMLString.startsWith("""<!doctype html>"""))
@@ -32,6 +48,9 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest{
   val indexHTMLRedirect : String = """The request, and all future requests should be repeated using <a href="index.html">this URI</a>."""
 
 
+  implicit val mocknotifier = new MockMailer
+  implicit val mockdatabase = new MockDatabase
+
   implicit val serverConfigSource : () => ServerConfig = () => new ServerConfig {
 
     //assume "web" as default value
@@ -42,6 +61,14 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest{
     override def port: Int = 1234
 
     override def filepathToDatabaseWithoutFileEnding: Option[String] = None//should not be used anyway
+  }
+
+  implicit val passwordConfigSource : () => PasswordConfig = () => new PasswordConfig {
+    override def normalUser: LoginData = LoginData(username, userpassword)
+
+    override def superUser: LoginData = LoginData(superusername, superuserpassword)
+
+    override def realmForCredentials(): String = "security realm for unit tests"
   }
 
   val staticRoute = new StaticRoute().extractRoute
@@ -67,6 +94,68 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest{
         responseAs[String] shouldEqual indexHTMLRedirect
       }
     }
+  }
+
+  val helloRt2 = path("hello") {
+    get {
+      complete {
+        "Hello world"
+      }
+    }
+  }
+
+  val jwtRouteContainer = new LinkJWTRoute()
+  val jwtRoute = jwtRouteContainer.extractRoute
+
+  "The JWT-Link Route" should  {
+
+
+    def examplereservation : SimpleReservation = SimpleReservation(
+      elements = Seq(EventElementBlock("Bed A", 9999, 9999 +  (1000 * 3600 * 24))),
+      name = "chris",
+      email = "chris@somwhere.org",
+      telephone = "013264355523434",
+      commentary =  "Some comment to make",
+        randomNumber = 1337.asInstanceOf[Long])
+
+    def exampleconfirm(id : Long) : ConfirmationOrDeletion = SimpleConfirmationOrDeletion(id, confirmingThisReservation = true, 13)
+      def exampledecline(id : Long) : ConfirmationOrDeletion = SimpleConfirmationOrDeletion(id, confirmingThisReservation = false, 14)
+
+
+    def authmissingreject = AuthenticationFailedRejection.apply(AuthenticationFailedRejection.CredentialsMissing,
+      HttpChallenges.basic(passwordConfigSource.apply().realmForCredentials()))
+
+    "require basic auth on confirm-email" in {
+      Get(jwtRouteContainer.computeLinkSubpathForEmailConfirmation(ReservationRequest.makeUrlencodedJWT(examplereservation))) ~> jwtRoute ~> check {
+        rejection shouldEqual authmissingreject
+      }
+    }
+
+
+    "work with user auth on confirm-email" in { //This does compile, red markers are intelliJ bugs
+      Get(jwtRouteContainer.computeLinkSubpathForEmailConfirmation(ReservationRequest.makeUrlencodedJWT
+      (examplereservation))) ~> addCredentials(BasicHttpCredentials(username, userpassword)) ~> jwtRoute ~> check {
+        responseAs[String] shouldEqual jwtRouteContainer.emailConfirmSuccessText
+      }
+    }
+
+    "require superuser auth on confirm-reservation" in {
+      Get(jwtRouteContainer.computeLinkSubpathForSuperuserConfirmation(ConfirmationOrDeletion.makeUrlencodedJWT
+      (exampleconfirm(mockdatabase.getUnconfirmedEventID)))) ~> jwtRoute ~> check {
+        rejection shouldEqual authmissingreject
+      }
+    }
+
+    "work with superuser auth on confirm-reservation" in { //This does compile, red markers are intelliJ bugs
+      Get(jwtRouteContainer.computeLinkSubpathForSuperuserConfirmation(ConfirmationOrDeletion.makeUrlencodedJWT
+      (exampleconfirm(mockdatabase.getUnconfirmedEventID)))) ~> addCredentials(BasicHttpCredentials(superusername,
+        superuserpassword)) ~> jwtRoute ~> check {
+        responseAs[String] shouldEqual jwtRouteContainer.confirmReservationText
+      }
+    }
+
+    //TODO: check mechanic of route
+
   }
 
 

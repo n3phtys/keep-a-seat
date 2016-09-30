@@ -15,6 +15,14 @@ trait Databaseable {
   def create(eventWithoutID : Event) : Future[Option[Event]] //can return NONE if not finding any place in the DB
   def delete(id : Long) : Future[Boolean]
 
+  /**
+    * return true if update was successful
+    * @param eventID
+    * @param confirmstatus
+    * @return
+    */
+  def updateConfirmation(eventID : Long, confirmstatus : Boolean) : Future[Boolean]
+
 }
 
 object Databaseable {

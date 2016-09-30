@@ -23,13 +23,14 @@ class MockDatabase extends Databaseable {
 
   override def update(event: Event): Future[Boolean] = Future.successful({
     if (db.contains(event.id)) {
-      db.put(event.id, event)
+      db.update(event.id, event)
       true
     } else {
       false
     }
   })
 
+  def getUnconfirmedEventID : Long = db.filterNot(_._2.confirmedBySupseruser).keys.min
 
   override def create(eventWithoutID: Event): Future[Option[Event]] = {
     val from  = eventWithoutID.elements.map(_.from).min
@@ -58,5 +59,19 @@ class MockDatabase extends Databaseable {
     })
   }
 
+  def clearDatabase() : Unit =  {
+    this.db.clear()
+  }
+
   override def retrieveSpecific(id: Long): Future[Option[Event]] = Future.successful(db.get(id))
+
+  override def updateConfirmation(eventID: Long, confirmstatus: Boolean): Future[Boolean] = {
+    retrieveSpecific(eventID).map((p : Option[Event]) => p match {
+      case Some(event) => {
+        db.update(eventID, event.copy(confirmedBySupseruser = confirmstatus))
+        true
+      }
+      case None => false
+    })
+  }
 }

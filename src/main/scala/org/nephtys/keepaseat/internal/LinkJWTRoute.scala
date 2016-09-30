@@ -5,85 +5,95 @@ import akka.actor.ActorRef
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.unmarshalling.FromRequestUnmarshaller
+import org.nephtys.cmac.MacSource
+import org.nephtys.keepaseat.{Databaseable, MailNotifiable}
+import org.nephtys.keepaseat.internal.configs.{Authenticators, PasswordConfig}
+import org.nephtys.keepaseat.internal.linkkeys.{ConfirmationOrDeletion, ReservationRequest}
 
 /**
   * Created by nephtys on 9/28/16.
   */
-class LinkJWTRoute {
+class LinkJWTRoute()(implicit passwordConfig: () => PasswordConfig, macSource: MacSource, database: Databaseable,
+                     emailNotifier: MailNotifiable) {
 
   //this does not require basic auth, but being safe is always better
 
-  //TODO: Basic Auth Check
-
-  val pathToEmailConfirmation : String = ???
-  val pathToSuperuserConfirmation : String = ???
+  val pathToEmailConfirmation: String = "confirmemail"
+  val pathToSuperuserConfirmation: String = "confirmreservation"
 
 
-  val AuthorizationHeaderName : String = """Authorization"""
+  val emailConfirmSuccessText : String = "Your Reservation was successfully registered and your email address confirmed. The Administrator " +
+    "will be " +
+    "presented with your registration, and confirm or decline it soon. You will be notified by email " +
+    "afterwards" +
+    " " +
+    "in either " +
+    "case. Thank you for your understanding!"
 
-  def extractRoute : Route = ???
+  val confirmReservationText : String = "You accepted the given reservation. You and the user will receive a notification email about " +
+    "the change."
 
+  val emailConfirmFailureText : String = "Sorry, but your reservation could not be made, as someone other has blocked the alloted " +
+    "timeslots in the meanwhile. Please try another reservation."
 
-  def emailConfirmationRoute: Route = path(pathToEmailConfirmation) {
-  extractRequest { request =>
-    parameter('jwt.as[String]) { jwtAsB64String =>
-      try {
-        val login : Option[org.nephtys.cmac.BasicAuthHelper.LoginData] = request.headers.find(_.is
-        (AuthorizationHeaderName)).flatMap(headervalue => org.nephtys.cmac.BasicAuthHelper
-          .extractPasswordFromAuthenticationHeaderValue(headervalue.value()))
-
-        /**
-          * if this is Some(false), the user is not authorized, but authenticated, so return 403. Use in case of
-          * superuser only
-          * resources. Some(true) is perfectly okay, None means return 401
-          */
-        val checkedLogin : Option[Boolean] = ???
-
-        checkedLogin match {
-          case None => ???
-          case Some(false) => ???
-          case Some(true) => {
-            ???
-            //TODO check if the jwt is all actually correct, reject with 403 if not
-
-            complete("Your Reservation was successfully registered and your email address confirmed. The Administrator " +
-              "will be " +
-              "presented with your registration, and confirm or decline it soon. You will be notified by email in either " +
-              "way. Thank you for your understanding!")
-          }
-        }
+  def extractRoute: Route = emailConfirmationRoute ~ superuserConfirmationOrDeclineRoute
 
 
-      } catch {
-        case e : Exception => reject
-      }
+  def computeLinkSubpathForEmailConfirmation(urlencodedjwt: String): String = "/"+pathToEmailConfirmation + "?jwt=" +
+  urlencodedjwt
 
-      /*val user: Option[JWT] = request.headers.find(_.is("Authorization")).flatMap(r => AuthCenter
-        .FromHeaderValue(r.value()))
+  def computeLinkSubpathForSuperuserConfirmation(urlencodedjwt: String): String = "/"+pathToSuperuserConfirmation + "?jwt=" + urlencodedjwt
 
-      if (user.isEmpty) {
-        reject
-      } else {
-        if (id.isDefined) {
-          //get single detail
-          val found = id.flatMap(i => get(new ID(i))(user.get))
-          if (found.isEmpty) {
-            //reject (id does not exist)
-            reject
-          } else {
-            //send as json
-            complete {
-              found.get.toJson
+
+  private def emailConfirmationRoute: Route = path(pathToEmailConfirmation) {
+    authenticateBasic(passwordConfig.apply().realmForCredentials(), Authenticators.normalUserOrSuperuserAuthenticator
+    (passwordConfig)) { username =>
+      get {
+        parameter('jwt.as[String]) { urlencodedjwt => {
+          val reservation = ReservationRequest.fromJWTString(urlencodedjwt).t
+          val event = reservation.toNewEventWithoutID
+          onSuccess(database.create(event)) {
+            case Some(ev) => {
+              //TODO: send emails
+              complete(emailConfirmSuccessText)
+            }
+            case _ => {
+              complete(emailConfirmFailureText)
             }
           }
-        } else {
-          //get general short and send them as json
-          complete {
-            s"[${get()(user.get).map(_.toJson).mkString(",")}]"
-          }
+
         }
-      }*/
+        }
+
+      }
     }
   }
-}
+
+  private def superuserConfirmationOrDeclineRoute: Route = path(pathToSuperuserConfirmation) {
+    authenticateBasic(passwordConfig.apply().realmForCredentials(), Authenticators.onlySuperuserAuthenticator
+    (passwordConfig)) { username =>
+      get {
+        parameter('jwt.as[String]) { urlencodedjwt => {
+          val confirmation = ConfirmationOrDeletion.fromJWTString(urlencodedjwt).t
+          onSuccess(confirmation.writeUpdateOrRemoveToDatabase) {
+            case Some(true) => {
+              //TODO: send emails
+              complete(confirmReservationText)
+            }
+            case Some(false) => {
+              //TODO: send emails
+              complete("You declined the given reservation. You and the user will receive a notification email about " +
+                "the change.")
+            }
+            case None => {
+              reject
+            }
+          }
+
+        }
+        }
+
+      }
+    }
+  }
 }

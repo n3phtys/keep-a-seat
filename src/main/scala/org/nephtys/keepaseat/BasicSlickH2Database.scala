@@ -95,6 +95,8 @@ class BasicSlickH2Database(db: Database) extends Databaseable {
     val blocks: IndexedSeq[EventElementBlock] = blocksraw.map(p => EventElementBlock(p._3, p._4, p._5))
     Event(eventraw._1, blocks, eventraw._2, eventraw._3, eventraw._4, eventraw._5, eventraw._6)
   }))
+
+  override def updateConfirmation(eventID: Long, confirmstatus: Boolean): Future[Boolean] = ???
 }
 
 /**
