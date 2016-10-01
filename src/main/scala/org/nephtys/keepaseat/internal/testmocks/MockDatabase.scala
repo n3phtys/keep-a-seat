@@ -1,10 +1,12 @@
-package org.nephtys.keepaseat
+package org.nephtys.keepaseat.internal.testmocks
+
 import java.util.concurrent.atomic.AtomicLong
 
+import org.nephtys.keepaseat.Databaseable
 import org.nephtys.keepaseat.internal.eventdata.Event
 
-import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 import scala.util.Try
 
 /**
@@ -30,6 +32,8 @@ class MockDatabase extends Databaseable {
       None
     }
   })
+
+  def getAll : Seq[Event] = db.values.toSeq
 
   def getUnconfirmedEventID : Option[(Long, String)] = Try(db.map(a => (a._2.id, a._2.email)).minBy(_._1)).toOption
 

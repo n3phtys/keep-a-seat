@@ -9,18 +9,22 @@ import akka.http.scaladsl.model.headers.{BasicHttpCredentials, HttpChallenge, Ht
 import akka.http.scaladsl.server.AuthenticationFailedRejection.CredentialsMissing
 import org.nephtys.cmac.BasicAuthHelper.LoginData
 import org.nephtys.cmac.MacSource
-import org.nephtys.keepaseat.internal.{LinkJWTRoute, StaticRoute}
+import org.nephtys.keepaseat.internal.{GetRetreiveRoute, LinkJWTRoute, StaticRoute}
 import org.nephtys.keepaseat.internal.configs.{PasswordConfig, ServerConfig}
-import org.nephtys.keepaseat.internal.eventdata.EventElementBlock
+import org.nephtys.keepaseat.internal.eventdata.{Event, EventElementBlock, EventSprayJsonFormat}
 import org.nephtys.keepaseat.internal.linkkeys.{ConfirmationOrDeletion, ReservationRequest, SimpleConfirmationOrDeletion, SimpleReservation}
+import org.nephtys.keepaseat.internal.testmocks.{MockDatabase, MockMailer}
+import spray.json._
+import DefaultJsonProtocol._
 
-import scala.concurrent.Await
+import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.Duration
 
 /**
   * Created by nephtys on 9/28/16.
   */
-class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest {
+class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest with
+  EventSprayJsonFormat{
 
   val username = "john"
   val superusername = "superjohn"
@@ -300,5 +304,61 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest {
 
   }
 
+  val retreiveRouteContainer = new GetRetreiveRoute()
+  val retreiveRoute = retreiveRouteContainer.extractRoute
 
+
+  "The Retreive Route" should {
+
+
+    val eventsWithoutIDs: Seq[Event] = Seq(
+      Event(-1, Seq(EventElementBlock("Bed A", 1000, 2000)), "tom", "tom@mouse.com", "telephone", "event 1", false),
+      Event(-1, Seq(EventElementBlock("Bed B", 1000, 2000)), "jerry", "jerry@cat.com", "telephone", "event 2", false),
+      Event(-1, Seq(EventElementBlock("Bed A", 3000, 4000), EventElementBlock("Bed B", 3000, 4000)), "tom",
+        "tom@mouse.com", "telephone", "event 3", false),
+      Event(-1, Seq(EventElementBlock("Bed B", 8000, 10000)), "jerry", "jerry@cat.com", "telephone", "event 4", false),
+      Event(-1, Seq(EventElementBlock("Bed A", 14000, 20000)), "tom", "tom@mouse.com", "telephone", "event 5", false)
+    )
+
+
+
+    def fillDatabase(): Seq[Event] = {
+      database.clearDatabase()
+      Await.result(Future.sequence(eventsWithoutIDs.map(e => database.create(e))), Duration(1, "minute"))
+      database.getAll
+    }
+
+    val retreiveLink: String = retreiveRouteContainer.receivePath
+
+    "retreive all events with min/max parameters" in {
+      val dbvals = fillDatabase()
+      val min: Long = Long.MinValue
+      val max: Long = Long.MaxValue
+      val mustVals = dbvals
+      Get(retreiveLink + "?from=" + min + "&to=" + max) ~>
+        addCredentials(BasicHttpCredentials(username, userpassword)) ~>
+        retreiveRoute ~>
+        check {
+          responseAs[String].parseJson.convertTo[Seq[Event]] shouldEqual mustVals
+        }
+    }
+
+    "retreive only a given period with correct from to parameters" in {
+      val dbvals = fillDatabase()
+      val min: Long = 2500
+      val max: Long = 9500
+      val mustVals : Seq[Event] = dbvals.filter(e => Databaseable.intersect(min, e.elements.map(_.from).min, max, e
+        .elements.map(_.to).max))
+      println(mustVals)
+      assert(mustVals.size == 2)
+      Get(retreiveLink + "?from=" + min + "&to=" + max) ~>
+        addCredentials(BasicHttpCredentials(username, userpassword)) ~>
+        retreiveRoute ~>
+        check {
+          responseAs[String].parseJson.convertTo[Seq[Event]] shouldEqual mustVals
+        }
+    }
+
+
+  }
 }

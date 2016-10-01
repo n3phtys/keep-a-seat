@@ -150,7 +150,7 @@ object BasicSlickH2Database {
 
     class EventElementBlocks(tag: Tag) extends Table[(Long, Long, String, Long, Long)](tag,
       "ELEMENTSTOEVENT") {
-      def ownid = column[Long]("ELEMENTEVENT_ID", O.PrimaryKey)
+      def ownid = column[Long]("ELEMENTEVENT_ID", O.PrimaryKey, O.AutoInc)
 
       def eventID = column[Long]("EVENT_ID")
 
@@ -170,7 +170,7 @@ object BasicSlickH2Database {
 
 
     class Events(tag: Tag) extends Table[(Long, String, String, String, String, Boolean)](tag, "EVENTS") {
-      def id = column[Long]("EVENT_ID", O.PrimaryKey)
+      def id = column[Long]("EVENT_ID", O.PrimaryKey, O.AutoInc)
 
       // This is the primary key column
       def name = column[String]("USER_NAME")

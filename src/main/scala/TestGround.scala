@@ -8,21 +8,49 @@ import Directives._
 import akka.http.scaladsl.model.headers.{BasicHttpCredentials, HttpChallenge}
 import org.nephtys.cmac.BasicAuthHelper.LoginData
 import org.nephtys.cmac.MacSource
-import org.nephtys.keepaseat.internal.{LinkJWTRoute, StaticRoute}
+import org.nephtys.keepaseat.internal.{GetRetreiveRoute, LinkJWTRoute, StaticRoute}
 import org.nephtys.keepaseat.internal.configs.{PasswordConfig, ServerConfig}
-import org.nephtys.keepaseat.internal.eventdata.EventElementBlock
+import org.nephtys.keepaseat.internal.eventdata.{Event, EventElementBlock}
 import org.nephtys.keepaseat.internal.linkkeys.{ConfirmationOrDeletion, ReservationRequest, SimpleReservation}
-import org.nephtys.keepaseat.BasicSlickH2Database
+import org.nephtys.keepaseat.internal.testmocks.MockDatabase
+import org.nephtys.keepaseat.{BasicSlickH2Database, Databaseable}
 
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, Future}
 import scala.io.StdIn
+import scala.concurrent.ExecutionContext.Implicits.global
 
 /**
   * Created by nephtys on 9/28/16.
   */
 object TestGround extends App {
+
+  implicit val passwordConfig : PasswordConfig = new PasswordConfig {
+    override def normalUser: LoginData = LoginData("user", "1234")
+
+    override def realmForCredentials(): String = "test credential realm"
+
+    override def superUser: LoginData = LoginData("admin", "1234")
+  }
+  implicit val passwordConfigGetter = () => passwordConfig
+
+
+
+  val eventsWithoutIDs : Seq[Event] = Seq(
+    Event(-1, Seq(EventElementBlock("Bed A", 1000, 2000)), "tom", "tom@mouse.com", "telephone", "event 1", false),
+    Event(-1, Seq(EventElementBlock("Bed B", 1000, 2000)), "jerry", "jerry@cat.com", "telephone", "event 2", false),
+    Event(-1, Seq(EventElementBlock("Bed A", 3000, 4000), EventElementBlock("Bed B", 3000, 4000)), "tom",
+      "tom@mouse.com", "telephone", "event 3", false),
+    Event(-1, Seq(EventElementBlock("Bed B", 8000, 10000)), "jerry", "jerry@cat.com", "telephone", "event 4", false),
+    Event(-1, Seq(EventElementBlock("Bed A", 14000, 20000)), "tom", "tom@mouse.com", "telephone", "event 5", false)
+  )
+
   println("Hello World")
   println("Loading Database...")
-  val db = new BasicSlickH2Database(BasicSlickH2Database.dbFromFile("target/testdatabase"))
+  implicit val db = new MockDatabase//new BasicSlickH2Database(BasicSlickH2Database.dbFromFile("target/testdatabase"))
+
+  Await.result(Future.sequence(eventsWithoutIDs.map(e => db.create(e))), Duration(1, "minute"))
+
 
   implicit val actorSystem = ActorSystem("system")
 
@@ -41,9 +69,10 @@ object TestGround extends App {
 
     }
 
-  import scala.concurrent.ExecutionContext.Implicits.global
 
-  val bindingFuture = Http().bindAndHandle(route, "localhost", 8080)
+  val routeContainer = new GetRetreiveRoute()
+
+  val bindingFuture = Http().bindAndHandle(routeContainer.extractRoute, "localhost", 8080)
   println(s"Server online at http://localhost:8080/\nPress RETURN to stop...")
   StdIn.readLine() // let it run until user presses return
   bindingFuture

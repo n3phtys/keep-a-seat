@@ -1,51 +1,42 @@
 package org.nephtys.keepaseat.internal
 
-import akka.http.scaladsl.server.Route
-import akka.actor.ActorRef
+import akka.http.scaladsl.server.{Directives, Route}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.unmarshalling.FromRequestUnmarshaller
+import org.nephtys.keepaseat.Databaseable
+import org.nephtys.keepaseat.internal.configs.{Authenticators, PasswordConfig}
+import spray.json._
+import DefaultJsonProtocol._
+import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
+import org.nephtys.keepaseat.internal.eventdata.{Event, EventElementBlock, EventSprayJsonFormat}
+
+
+
 
 /**
   * Created by nephtys on 9/28/16.
   */
-class GetRetreiveRoute {
+class GetRetreiveRoute(implicit passwordConfig : () => PasswordConfig, database : Databaseable) extends Directives with
+  EventSprayJsonFormat  {
 
-  //TODO: Basic Auth Check
+  def receivePathWithoutSlashes = """events"""
+  def receivePath = "/"+receivePathWithoutSlashes
 
-  def extractRoute : Route = ???
-
-/*
-  def getR: Route = path(s"get") {
-    extractRequest { request =>
-      parameter('id.as[Long].?) { id =>
-
-        val user: Option[JWT] = request.headers.find(_.is("Authorization")).flatMap(r => AuthCenter
-          .FromHeaderValue(r.value()))
-
-        if (user.isEmpty) {
-          reject
-        } else {
-          if (id.isDefined) {
-            //get single detail
-            val found = id.flatMap(i => get(new ID(i))(user.get))
-            if (found.isEmpty) {
-              //reject (id does not exist)
-              reject
-            } else {
-              //send as json
-              complete {
-                found.get.toJson
-              }
-            }
-          } else {
-            //get general short and send them as json
-            complete {
-              s"[${get()(user.get).map(_.toJson).mkString(",")}]"
+  def extractRoute : Route = path(receivePathWithoutSlashes) {
+    authenticateBasic(passwordConfig.apply().realmForCredentials(), Authenticators.normalUserOrSuperuserAuthenticator
+    (passwordConfig)) { username =>
+      parameters('from.as[Long], 'to.as[Long]) { (from, to) => {
+          onSuccess(database.retrieve(from, to)) {a => {
+            complete{
+              a
             }
           }
-        }
+          }
+      }
       }
     }
-  }*/
+  }
+
+
 }

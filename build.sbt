@@ -15,6 +15,7 @@ val upickleV    = "0.4.1"
 val slf4jV      = "1.6.4"
 val slickV      = "3.1.1"
 val h2dbV       = "1.4.192"
+val sprayV      = "1.3.2"
 
 
 
@@ -41,6 +42,7 @@ lazy val root = Project("keep-a-seat", file("."))
       "com.typesafe.akka"   %% "akka-cluster-tools" % akkaV,
       "com.lihaoyi"         %% "upickle" % upickleV,
       "com.typesafe.slick"  %% "slick" % slickV,
-      "com.h2database"      %   "h2"  % h2dbV,
+      "io.spray"            %% "spray-json" % sprayV,
+      "com.h2database"      %  "h2"  % h2dbV,
       "org.slf4j" % "slf4j-nop" % slf4jV
     ))

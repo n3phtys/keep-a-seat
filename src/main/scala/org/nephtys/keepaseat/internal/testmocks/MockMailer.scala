@@ -1,6 +1,8 @@
-package org.nephtys.keepaseat
-import org.nephtys.keepaseat.MockMailer.Notification
+package org.nephtys.keepaseat.internal.testmocks
+
+import org.nephtys.keepaseat.MailNotifiable
 import org.nephtys.keepaseat.internal.eventdata.Event
+import org.nephtys.keepaseat.internal.testmocks.MockMailer.Notification
 
 import scala.collection.mutable
 
