@@ -16,6 +16,8 @@ trait MailNotifiable {
 
   def sendConfirmedNotificationToUser(event : Event, deleteLink : String) : Unit
 
+  def sendNotYetConfirmedNotificationToUser(event : Event, deleteLink : String) : Unit
+
   def sendDeclinedNotificationToSuperuser(event : Event) : Unit
 
   def sendDeclinedNotificationToUser(event : Event) : Unit

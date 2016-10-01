@@ -17,6 +17,9 @@ sealed trait ConfirmationOrDeletion {
 
   def eventid : Long
 
+
+  def email : String
+
   def confirmingThisReservation : Boolean
 
   /**
@@ -30,7 +33,8 @@ sealed trait ConfirmationOrDeletion {
 }
 
 
-case class SimpleConfirmationOrDeletion(eventid : Long, confirmingThisReservation : Boolean, randomNumber : Long)
+case class SimpleConfirmationOrDeletion(eventid : Long, email : String, confirmingThisReservation : Boolean,
+randomNumber : Long)
 extends
   ConfirmationOrDeletion {
   /**
@@ -60,7 +64,7 @@ extends
   * @param eventid
   * @param randomNumber
   */
-case class DeleteFromUserAfterCreation(eventid : Long, randomNumber: Long) extends
+case class DeleteFromUserAfterCreation(eventid : Long, email : String, randomNumber: Long) extends //email + id unique
   ConfirmationOrDeletion {
   override def confirmingThisReservation: Boolean = false
 
@@ -97,9 +101,10 @@ object ConfirmationOrDeletion {
   }
 
   def fromForSuperuser(event : Event, confirm : Boolean) : ConfirmationOrDeletion = SimpleConfirmationOrDeletion(event
-    .id,
+    .id, event.email,
     confirmingThisReservation = confirm, randomNumber)
 
 
-  def fromForUser(event : Event) : ConfirmationOrDeletion = DeleteFromUserAfterCreation(event.id, randomNumber)
+  def fromForUser(event : Event) : ConfirmationOrDeletion = DeleteFromUserAfterCreation(event.id, event.email,
+    randomNumber)
 }

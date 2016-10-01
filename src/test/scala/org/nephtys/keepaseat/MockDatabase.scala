@@ -31,7 +31,7 @@ class MockDatabase extends Databaseable {
     }
   })
 
-  def getUnconfirmedEventID : Option[Long] = Try(db.filterNot(_._2.confirmedBySupseruser).keys.min).toOption
+  def getUnconfirmedEventID : Option[(Long, String)] = Try(db.map(a => (a._2.id, a._2.email)).minBy(_._1)).toOption
 
   override def create(eventWithoutID: Event): Future[Option[Event]] = {
     val from  = eventWithoutID.elements.map(_.from).min

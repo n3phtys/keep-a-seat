@@ -29,6 +29,9 @@ class MockMailer extends MailNotifiable{
 
   override def sendDeclinedNotificationToUser(event: Event): Unit = notifications +=
     Notification(false, true, false, false, Seq.empty, Some(event))
+
+  override def sendNotYetConfirmedNotificationToUser(event: Event, deleteLink: String): Unit = notifications +=
+    Notification(false, false, true, false, Seq(deleteLink), Some(event))
 }
 
 object MockMailer {

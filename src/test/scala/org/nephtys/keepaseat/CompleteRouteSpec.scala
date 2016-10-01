@@ -1,7 +1,7 @@
 package org.nephtys.keepaseat
 
 import org.scalatest.{Matchers, WordSpec}
-import akka.http.scaladsl.model.StatusCodes
+import akka.http.scaladsl.model.{StatusCode, StatusCodes}
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.http.scaladsl.server._
 import Directives._
@@ -14,44 +14,47 @@ import org.nephtys.keepaseat.internal.configs.{PasswordConfig, ServerConfig}
 import org.nephtys.keepaseat.internal.eventdata.EventElementBlock
 import org.nephtys.keepaseat.internal.linkkeys.{ConfirmationOrDeletion, ReservationRequest, SimpleConfirmationOrDeletion, SimpleReservation}
 
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
+
 /**
   * Created by nephtys on 9/28/16.
   */
-class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest{
+class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest {
 
   val username = "john"
   val superusername = "superjohn"
   val userpassword = "12345"
-  val superuserpassword ="678910"
+  val superuserpassword = "678910"
 
 
-  def readFile(filepath : String)  = {
+  def readFile(filepath: String) = {
     val source = scala.io.Source.fromFile(filepath, "utf-8")
     val lines = try source.mkString finally source.close()
     lines
   }
 
   val secretKey = org.nephtys.cmac.HmacHelper.keys.generateNewKey(256, "HmacSHA256")
-  implicit val macSource : MacSource = new MacSource( () => secretKey)
+  implicit val macSource: MacSource = new MacSource(() => secretKey)
 
 
-  val indexHTMLString : String =  readFile("""src/test/resources/web/index.html""")
+  val indexHTMLString: String = readFile("""src/test/resources/web/index.html""")
   assert(indexHTMLString.startsWith("""<!doctype html>"""))
 
-  val fileTxtString : String =    readFile("""src/test/resources/web/file.txt""")
+  val fileTxtString: String = readFile("""src/test/resources/web/file.txt""")
   assert(fileTxtString.equals("""this is a txt file"""))
 
-  val deeperTxtString : String =  readFile("""src/test/resources/web/subdirectory/deeper.txt""")
+  val deeperTxtString: String = readFile("""src/test/resources/web/subdirectory/deeper.txt""")
   assert(deeperTxtString.equals("""I am so deep right now"""))
 
 
-  val indexHTMLRedirect : String = """The request, and all future requests should be repeated using <a href="index.html">this URI</a>."""
+  val indexHTMLRedirect: String = """The request, and all future requests should be repeated using <a href="index.html">this URI</a>."""
 
 
-  implicit val mocknotifier = new MockMailer
-  implicit val mockdatabase = new MockDatabase
+  implicit val notifier = new MockMailer
+  implicit val database = new MockDatabase
 
-  implicit val serverConfigSource : () => ServerConfig = () => new ServerConfig {
+  implicit val serverConfigSource: () => ServerConfig = () => new ServerConfig {
 
     //assume "web" as default value
     override def pathToStaticWebDirectory: String = "src/test/resources/web"
@@ -60,10 +63,10 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest{
 
     override def port: Int = 1234
 
-    override def filepathToDatabaseWithoutFileEnding: Option[String] = None//should not be used anyway
+    override def filepathToDatabaseWithoutFileEnding: Option[String] = None //should not be used anyway
   }
 
-  implicit val passwordConfigSource : () => PasswordConfig = () => new PasswordConfig {
+  implicit val passwordConfigSource: () => PasswordConfig = () => new PasswordConfig {
     override def normalUser: LoginData = LoginData(username, userpassword)
 
     override def superUser: LoginData = LoginData(superusername, superuserpassword)
@@ -73,7 +76,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest{
 
   val staticRoute = new StaticRoute().extractRoute
 
-  "The Static Route" should  {
+  "The Static Route" should {
     "return a txt-file in the web direcrory for /file.txt" in {
       Get("file.txt") ~> staticRoute ~> check {
         responseAs[String] shouldEqual fileTxtString
@@ -107,23 +110,29 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest{
   val jwtRouteContainer = new LinkJWTRoute()
   val jwtRoute = jwtRouteContainer.extractRoute
 
-  "The JWT-Link Route" should  {
+  "The JWT-Link Route" should {
 
+    def examplereservationlink: String = jwtRouteContainer.computeLinkSubpathForEmailConfirmation(examplereservation
+      .toURLencodedJWT())
 
-    def examplereservation : SimpleReservation = SimpleReservation(
-      elements = Seq(EventElementBlock("Bed A", 9999, 9999 +  (1000 * 3600 * 24))),
+    def examplereservation: SimpleReservation = SimpleReservation(
+      elements = Seq(EventElementBlock("Bed A", 9999, 9999 + (1000 * 3600 * 24))),
       name = "chris",
       email = "chris@somwhere.org",
       telephone = "013264355523434",
-      commentary =  "Some comment to make",
-        randomNumber = 1337.asInstanceOf[Long])
+      commentary = "Some comment to make",
+      randomNumber = 1337.asInstanceOf[Long])
 
     def examplereservation2 = examplereservation.copy(elements = Seq(EventElementBlock("Bed A", 9999 + 1000000, 9999 + 1000000 +
       (1000 *
-      3600 * 24))))
+        3600 * 24))))
 
-    def exampleconfirm(id : Long) : ConfirmationOrDeletion = SimpleConfirmationOrDeletion(id, confirmingThisReservation = true, 13)
-      def exampledecline(id : Long) : ConfirmationOrDeletion = SimpleConfirmationOrDeletion(id, confirmingThisReservation = false, 14)
+    def exampleconfirm(combine: (Long, String)): ConfirmationOrDeletion = SimpleConfirmationOrDeletion(combine._1,
+      combine._2,
+      confirmingThisReservation = true, 13)
+    def exampledecline(combine: (Long, String)): ConfirmationOrDeletion = SimpleConfirmationOrDeletion(combine
+      ._1, combine._2,
+      confirmingThisReservation = false, 14)
 
 
     def authmissingreject = AuthenticationFailedRejection.apply(AuthenticationFailedRejection.CredentialsMissing,
@@ -136,7 +145,8 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest{
     }
 
 
-    "work with user auth on confirm-email" in { //This does compile, red markers are intelliJ bugs
+    "work with user auth on confirm-email" in {
+      //This does compile, red markers are intelliJ bugs
       Get(jwtRouteContainer.computeLinkSubpathForEmailConfirmation(ReservationRequest.makeUrlencodedJWT
       (examplereservation))) ~> addCredentials(BasicHttpCredentials(username, userpassword)) ~> jwtRoute ~> check {
         responseAs[String] shouldEqual jwtRouteContainer.emailConfirmSuccessText
@@ -144,28 +154,29 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest{
     }
 
     "require superuser auth on confirm-reservation" in {
-      if(mockdatabase.getUnconfirmedEventID.isDefined) {
-        mockdatabase.create(examplereservation.toNewEventWithoutID)
+      if (database.getUnconfirmedEventID.isDefined) {
+        database.create(examplereservation.toNewEventWithoutID)
       }
       Get(jwtRouteContainer.computeLinkSubpathForSuperuserConfirmation(ConfirmationOrDeletion.makeUrlencodedJWT
-      (exampleconfirm(mockdatabase.getUnconfirmedEventID.get)))) ~> jwtRoute ~> check {
+      (exampleconfirm(database.getUnconfirmedEventID.get)))) ~> jwtRoute ~> check {
         rejection shouldEqual authmissingreject
       }
     }
 
-    "work with superuser auth on confirm-reservation" in { //This does compile, red markers are intelliJ bugs
-      if(mockdatabase.getUnconfirmedEventID.isDefined) {
-        mockdatabase.create(examplereservation.toNewEventWithoutID)
+    "work with superuser auth on confirm-reservation" in {
+      //This does compile, red markers are intelliJ bugs
+      if (database.getUnconfirmedEventID.isDefined) {
+        database.create(examplereservation.toNewEventWithoutID)
       }
-      Get(jwtRouteContainer.computeLinkSubpathForSuperuserConfirmation(ConfirmationOrDeletion.makeUrlencodedJWT
-      (exampleconfirm(mockdatabase.getUnconfirmedEventID.get)))) ~> addCredentials(BasicHttpCredentials(superusername,
+      Get(jwtRouteContainer.computeLinkSubpathForSuperuserConfirmation(ConfirmationOrDeletion.makeUrlencodedJWT(exampleconfirm(database.getUnconfirmedEventID.get)))) ~> addCredentials(BasicHttpCredentials(superusername,
         superuserpassword)) ~> jwtRoute ~> check {
         responseAs[String] shouldEqual jwtRouteContainer.confirmReservationText
       }
     }
 
 
-    "is rejected if the jwt is incomplete" in { //This does compile, red markers are intelliJ bugs
+    "be rejected if the jwt is incomplete" in {
+      //This does compile, red markers are intelliJ bugs
       val long = jwtRouteContainer.computeLinkSubpathForEmailConfirmation(ReservationRequest.makeUrlencodedJWT
       (examplereservation))
       val short = long.substring(0, long.length / 2)
@@ -174,56 +185,120 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest{
       }
     }
 
-    //TODO: check mechanic of route
+
+    //following: check mechanic of route
+
+
+    //test mechanic 1 - everything is right, but the user deletes after superuser confirmation
+    "work normally under typical workflow with superuser confirming and user deleting afterwards" in {
+      database.clearDatabase()
+      notifier.notifications.clear()
+      //get first email confirm link
+      val emailconfirmlink = examplereservationlink
+      Await.result(database.retrieve(), Duration(1, "second")).size shouldEqual 0
+      //call get on email confirm link (with auth) => should create event in db
+      Get(emailconfirmlink) ~> addCredentials(BasicHttpCredentials(username, userpassword)) ~> jwtRoute ~> check {
+        status.isSuccess() shouldEqual true
+      }
+      val databaseretreive1 = Await.result(database.retrieve(), Duration(1, "second"))
+      databaseretreive1.size shouldEqual 1
+      val eventAfterEmailConfirm = databaseretreive1.head
+      eventAfterEmailConfirm.confirmedBySupseruser shouldEqual false
+      //get user delete and superuser confirm link
+      notifier.notifications.size shouldEqual 2
+      val userdeletelink: String = notifier.notifications.find(a => !a.toSuperuserInsteadOfUser).get.links.head
+      val superuserconfirmlink: String = notifier.notifications.find(a => a.toSuperuserInsteadOfUser).get.links.head
+      //call get on superuser confirm link (with auth)  => should update event in db
+      Get(superuserconfirmlink) ~> addCredentials(BasicHttpCredentials(username, userpassword)) ~> jwtRoute ~> check {
+        status.isSuccess() shouldEqual true
+      }
+      val databaseretreive2 = Await.result(database.retrieve(), Duration(1, "second"))
+      databaseretreive2.size shouldEqual 1
+      notifier.notifications.size shouldEqual 4
+      val eventAfterSuperuserConfirm = databaseretreive2.head
+      eventAfterSuperuserConfirm.confirmedBySupseruser shouldEqual true
+      //call get on user delete link (with auth)  => should delete event in db
+      Get(userdeletelink) ~> addCredentials(BasicHttpCredentials(username, userpassword)) ~> jwtRoute ~> check {
+        status.isSuccess() shouldEqual true
+      }
+      val databaseretreive3 = Await.result(database.retrieve(), Duration(1, "second"))
+      databaseretreive3.size shouldEqual 0
+      notifier.notifications.size shouldEqual 6
+    }
+
+
+    //test mechanic 2 - everything is right, but the user deletes before superuser confirmation (which fails)
+    "work with user deleting and superuser trying to confirm afterwards" in {
+      database.clearDatabase()
+      notifier.notifications.clear()
+      //get first email confirm link
+      val emailconfirmlink = examplereservationlink
+      Await.result(database.retrieve(), Duration(1, "second")).size shouldEqual 0
+      //call get on email confirm link (with auth) => should create event in db
+      Get(emailconfirmlink) ~> addCredentials(BasicHttpCredentials(username, userpassword)) ~> jwtRoute ~> check {
+        status.isSuccess() shouldEqual true
+      }
+      val databaseretreive1 = Await.result(database.retrieve(), Duration(1, "second"))
+      databaseretreive1.size shouldEqual 1
+      val eventAfterEmailConfirm = databaseretreive1.head
+      eventAfterEmailConfirm.confirmedBySupseruser shouldEqual false
+      //get user delete and superuser confirm link
+      notifier.notifications.size shouldEqual 2
+      val userdeletelink: String = notifier.notifications.find(a => !a.toSuperuserInsteadOfUser).get.links.head
+      val superuserconfirmlink: String = notifier.notifications.find(a => a.toSuperuserInsteadOfUser).get.links.head
+      //call get on user delete link (with auth)  => should delete event in db
+      Get(userdeletelink) ~> addCredentials(BasicHttpCredentials(username, userpassword)) ~> jwtRoute ~> check {
+        status.isSuccess() shouldEqual true
+      }
+      val databaseretreive3 = Await.result(database.retrieve(), Duration(1, "second"))
+      databaseretreive3.size shouldEqual 0
+      notifier.notifications.size shouldEqual 4
+      //call get on superuser confirm link (with auth) - should fail
+      Get(superuserconfirmlink) ~> addCredentials(BasicHttpCredentials(username, userpassword)) ~> jwtRoute ~> check {
+        status.isSuccess() shouldEqual false
+      }
+      val databaseretreive2 = Await.result(database.retrieve(), Duration(1, "second"))
+      databaseretreive2.size shouldEqual 0
+      notifier.notifications.size shouldEqual 4
+
+    }
+
+    //test mechanic 3 - everything is right, but the superuser declines
+    "work normally with the superuser declining" in {
+      database.clearDatabase()
+      notifier.notifications.clear()
+      //get first email confirm link
+      val emailconfirmlink = examplereservationlink
+      Await.result(database.retrieve(), Duration(1, "second")).size shouldEqual 0
+      //call get on email confirm link (with auth) => should create event in db
+      Get(emailconfirmlink) ~> addCredentials(BasicHttpCredentials(username, userpassword)) ~> jwtRoute ~> check {
+        status.isSuccess() shouldEqual true
+      }
+      val databaseretreive1 = Await.result(database.retrieve(), Duration(1, "second"))
+      databaseretreive1.size shouldEqual 1
+      val eventAfterEmailConfirm = databaseretreive1.head
+      eventAfterEmailConfirm.confirmedBySupseruser shouldEqual false
+      //get user delete and superuser delete link
+      notifier.notifications.size shouldEqual 2
+      val userdeletelink: String = notifier.notifications.find(a => !a.toSuperuserInsteadOfUser).get.links.head
+      val superuserdeletelink: String = notifier.notifications.find(a => a.toSuperuserInsteadOfUser).get.links.last
+      //call get on superuser delete  link (with auth)  => should delete event in db
+      Get(superuserdeletelink) ~> addCredentials(BasicHttpCredentials(username, userpassword)) ~> jwtRoute ~> check {
+        status.isSuccess() shouldEqual true
+      }
+      val databaseretreive4 = Await.result(database.retrieve(), Duration(1, "second"))
+      databaseretreive4.size shouldEqual 0
+      //TODO: call get on user delete link (with auth) - should fail
+      Get(userdeletelink) ~> addCredentials(BasicHttpCredentials(username, userpassword)) ~> jwtRoute ~> check {
+        status.isSuccess() shouldEqual false
+      }
+      val databaseretreive2 = Await.result(database.retrieve(), Duration(1, "second"))
+      databaseretreive2.size shouldEqual 0
+      notifier.notifications.size shouldEqual 4
+
+    }
 
   }
 
 
-  /* copied from testkit example http://doc.akka.io/docs/akka/2.4.10/scala/http/routing-dsl/testkit.html  :
-
-  val smallRoute =
-    get {
-      pathSingleSlash {
-        complete {
-          "Captain on the bridge!"
-        }
-      } ~
-      path("ping") {
-        complete("PONG!")
-      }
-    }
-
-  "The service" should {
-
-    "return a greeting for GET requests to the root path" in {
-      // tests:
-      Get() ~> smallRoute ~> check {
-        responseAs[String] shouldEqual "Captain on the bridge!"
-      }
-    }
-
-    "return a 'PONG!' response for GET requests to /ping" in {
-      // tests:
-      Get("/ping") ~> smallRoute ~> check {
-        responseAs[String] shouldEqual "PONG!"
-      }
-    }
-
-    "leave GET requests to other paths unhandled" in {
-      // tests:
-      Get("/kermit") ~> smallRoute ~> check {
-        handled shouldBe false
-      }
-    }
-
-    "return a MethodNotAllowed error for PUT requests to the root path" in {
-      // tests:
-      Put() ~> Route.seal(smallRoute) ~> check {
-        status === StatusCodes.MethodNotAllowed
-        responseAs[String] shouldEqual "HTTP method not allowed, supported methods: GET"
-      }
-    }
-  }
-}
-   */
 }
