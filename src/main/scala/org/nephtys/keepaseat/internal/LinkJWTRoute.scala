@@ -85,8 +85,8 @@ class LinkJWTRoute()(implicit passwordConfig: () => PasswordConfig, macSource: M
   }
 
   private def superuserConfirmationOrDeclineRoute: Route = path(pathToSuperuserConfirmation) {
-    authenticateBasic(passwordConfig.apply().realmForCredentials(), Authenticators.onlySuperuserAuthenticator
-    (passwordConfig)) { username =>
+    authenticateBasic(passwordConfig.apply().realmForCredentials(), Authenticators.normalUserOrSuperuserAuthenticator
+    (passwordConfig)) { username => //normal users can use this path too via their delete link.
       get {
         parameter('jwt.as[String]) { urlencodedjwt => {
           try {

@@ -9,7 +9,7 @@ val scavalueurl = "https://github.com/n3phtys/scavalue-loader.git"
 
 
 
-val akkaV       = "2.4.10"
+val akkaV       = "2.4.11"
 val scalaTestV  = "3.0.0"
 val upickleV    = "0.4.1"
 val slf4jV      = "1.6.4"

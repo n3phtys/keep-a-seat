@@ -255,7 +255,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest {
       notifier.notifications.size shouldEqual 4
       //call get on superuser confirm link (with auth) - should fail
       Get(superuserconfirmlink) ~> addCredentials(BasicHttpCredentials(username, userpassword)) ~> jwtRoute ~> check {
-        status.isSuccess() shouldEqual false
+        handled shouldEqual false
       }
       val databaseretreive2 = Await.result(database.retrieve(), Duration(1, "second"))
       databaseretreive2.size shouldEqual 0
@@ -288,9 +288,9 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest {
       }
       val databaseretreive4 = Await.result(database.retrieve(), Duration(1, "second"))
       databaseretreive4.size shouldEqual 0
-      //TODO: call get on user delete link (with auth) - should fail
+      //call get on user delete link (with auth) - should fail
       Get(userdeletelink) ~> addCredentials(BasicHttpCredentials(username, userpassword)) ~> jwtRoute ~> check {
-        status.isSuccess() shouldEqual false
+        handled shouldEqual false
       }
       val databaseretreive2 = Await.result(database.retrieve(), Duration(1, "second"))
       databaseretreive2.size shouldEqual 0
