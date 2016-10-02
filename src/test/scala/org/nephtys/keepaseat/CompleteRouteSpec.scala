@@ -9,7 +9,7 @@ import akka.http.scaladsl.model.headers.{BasicHttpCredentials, HttpChallenge, Ht
 import akka.http.scaladsl.server.AuthenticationFailedRejection.CredentialsMissing
 import org.nephtys.cmac.BasicAuthHelper.LoginData
 import org.nephtys.cmac.MacSource
-import org.nephtys.keepaseat.internal.{GetRetreiveRoute, LinkJWTRoute, StaticRoute}
+import org.nephtys.keepaseat.internal.{GetRetreiveRoute, LinkJWTRoute, PostChangesRoute, StaticRoute}
 import org.nephtys.keepaseat.internal.configs.{PasswordConfig, ServerConfig}
 import org.nephtys.keepaseat.internal.eventdata.{Event, EventElementBlock, EventSprayJsonFormat}
 import org.nephtys.keepaseat.internal.linkkeys.{ConfirmationOrDeletion, ReservationRequest, SimpleConfirmationOrDeletion, SimpleReservation}
@@ -17,6 +17,8 @@ import org.nephtys.keepaseat.internal.testmocks.{MockDatabase, MockMailer}
 import spray.json._
 import DefaultJsonProtocol._
 import org.nephtys.keepaseat.filter.XSSCleaner
+import org.nephtys.keepaseat.internal.posts.{SimpleSuperuserPost, SimpleUserPost}
+import org.nephtys.keepaseat.internal.validators.{BasicSuperuserPostValidator, SuperuserPostValidator, UserPostValidator}
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.Duration
@@ -59,6 +61,9 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
   implicit val notifier = new MockMailer
   implicit val database = new MockDatabase
   implicit val xss = new XSSCleaner()
+
+  implicit val validatorsUser : Seq[UserPostValidator] = Seq.empty
+  implicit val validatorsSuperuser :  Seq[SuperuserPostValidator] = Seq(new BasicSuperuserPostValidator())
 
   implicit val serverConfigSource: () => ServerConfig = () => new ServerConfig {
 
@@ -118,7 +123,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
 
   "The JWT-Link Route" should {
 
-    def examplereservationlink: String = jwtRouteContainer.computeLinkSubpathForEmailConfirmation(examplereservation
+    def examplereservationlink: String = LinkJWTRoute.computeLinkSubpathForEmailConfirmation(examplereservation
       .toURLencodedJWT())
 
     def examplereservation: SimpleReservation = SimpleReservation(
@@ -145,7 +150,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
       HttpChallenges.basic(passwordConfigSource.apply().realmForCredentials()))
 
     "require basic auth on confirm-email" in {
-      Get(jwtRouteContainer.computeLinkSubpathForEmailConfirmation(ReservationRequest.makeUrlencodedJWT(examplereservation))) ~> jwtRoute ~> check {
+      Get(LinkJWTRoute.computeLinkSubpathForEmailConfirmation(ReservationRequest.makeUrlencodedJWT(examplereservation))) ~> jwtRoute ~> check {
         rejection shouldEqual authmissingreject
       }
     }
@@ -153,9 +158,9 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
 
     "work with user auth on confirm-email" in {
       //This does compile, red markers are intelliJ bugs
-      Get(jwtRouteContainer.computeLinkSubpathForEmailConfirmation(ReservationRequest.makeUrlencodedJWT
+      Get(LinkJWTRoute.computeLinkSubpathForEmailConfirmation(ReservationRequest.makeUrlencodedJWT
       (examplereservation))) ~> addCredentials(BasicHttpCredentials(username, userpassword)) ~> jwtRoute ~> check {
-        responseAs[String] shouldEqual jwtRouteContainer.emailConfirmSuccessText
+        responseAs[String] shouldEqual LinkJWTRoute.emailConfirmSuccessText
       }
     }
 
@@ -163,7 +168,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
       if (database.getUnconfirmedEventID.isDefined) {
         database.create(examplereservation.toNewEventWithoutID)
       }
-      Get(jwtRouteContainer.computeLinkSubpathForSuperuserConfirmation(ConfirmationOrDeletion.makeUrlencodedJWT
+      Get(LinkJWTRoute.computeLinkSubpathForSuperuserConfirmation(ConfirmationOrDeletion.makeUrlencodedJWT
       (exampleconfirm(database.getUnconfirmedEventID.get)))) ~> jwtRoute ~> check {
         rejection shouldEqual authmissingreject
       }
@@ -174,16 +179,16 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
       if (database.getUnconfirmedEventID.isDefined) {
         database.create(examplereservation.toNewEventWithoutID)
       }
-      Get(jwtRouteContainer.computeLinkSubpathForSuperuserConfirmation(ConfirmationOrDeletion.makeUrlencodedJWT(exampleconfirm(database.getUnconfirmedEventID.get)))) ~> addCredentials(BasicHttpCredentials(superusername,
+      Get(LinkJWTRoute.computeLinkSubpathForSuperuserConfirmation(ConfirmationOrDeletion.makeUrlencodedJWT(exampleconfirm(database.getUnconfirmedEventID.get)))) ~> addCredentials(BasicHttpCredentials(superusername,
         superuserpassword)) ~> jwtRoute ~> check {
-        responseAs[String] shouldEqual jwtRouteContainer.confirmReservationText
+        responseAs[String] shouldEqual LinkJWTRoute.confirmReservationText
       }
     }
 
 
     "be rejected if the jwt is incomplete" in {
       //This does compile, red markers are intelliJ bugs
-      val long = jwtRouteContainer.computeLinkSubpathForEmailConfirmation(ReservationRequest.makeUrlencodedJWT
+      val long = LinkJWTRoute.computeLinkSubpathForEmailConfirmation(ReservationRequest.makeUrlencodedJWT
       (examplereservation))
       val short = long.substring(0, long.length / 2)
       Get(short) ~> addCredentials(BasicHttpCredentials(username, userpassword)) ~> jwtRoute ~> check {
@@ -309,26 +314,26 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
   val retreiveRouteContainer = new GetRetreiveRoute()
   val retreiveRoute = retreiveRouteContainer.extractRoute
 
+  val eventsWithoutIDs: Seq[Event] = Seq(
+    Event(-1, Seq(EventElementBlock("Bed A", 1000, 2000)), "tom", "tom@mouse.com", "telephone", "event 1", false),
+    Event(-1, Seq(EventElementBlock("Bed B", 1000, 2000)), "jerry", "jerry@cat.com", "telephone", "event 2", false),
+    Event(-1, Seq(EventElementBlock("Bed A", 3000, 4000), EventElementBlock("Bed B", 3000, 4000)), "tom",
+      "tom@mouse.com", "telephone", "event 3", false),
+    Event(-1, Seq(EventElementBlock("Bed B", 8000, 10000)), "jerry", "jerry@cat.com", "telephone", "event 4", false),
+    Event(-1, Seq(EventElementBlock("Bed A", 14000, 20000)), "tom", "tom@mouse.com", "telephone", "event 5", false)
+  )
+
+
+
+  def fillDatabase(): Seq[Event] = {
+    database.clearDatabase()
+    Await.result(Future.sequence(eventsWithoutIDs.map(e => database.create(e))), Duration(1, "minute"))
+    database.getAll
+  }
 
   "The Retreive Route" should {
 
 
-    val eventsWithoutIDs: Seq[Event] = Seq(
-      Event(-1, Seq(EventElementBlock("Bed A", 1000, 2000)), "tom", "tom@mouse.com", "telephone", "event 1", false),
-      Event(-1, Seq(EventElementBlock("Bed B", 1000, 2000)), "jerry", "jerry@cat.com", "telephone", "event 2", false),
-      Event(-1, Seq(EventElementBlock("Bed A", 3000, 4000), EventElementBlock("Bed B", 3000, 4000)), "tom",
-        "tom@mouse.com", "telephone", "event 3", false),
-      Event(-1, Seq(EventElementBlock("Bed B", 8000, 10000)), "jerry", "jerry@cat.com", "telephone", "event 4", false),
-      Event(-1, Seq(EventElementBlock("Bed A", 14000, 20000)), "tom", "tom@mouse.com", "telephone", "event 5", false)
-    )
-
-
-
-    def fillDatabase(): Seq[Event] = {
-      database.clearDatabase()
-      Await.result(Future.sequence(eventsWithoutIDs.map(e => database.create(e))), Duration(1, "minute"))
-      database.getAll
-    }
 
     val retreiveLink: String = retreiveRouteContainer.receivePath
 
@@ -361,5 +366,94 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
     }
 
 
+  }
+
+  def mailer = notifier
+
+  "The POST Routes" should {
+    import upickle.default._
+
+    val routecontainer = new PostChangesRoute()
+      val route = routecontainer.extractRoute
+
+    def correctUserpostJson : String = write(SimpleUserPost("john", "john@somewhere.org", "32525 555", "this is a " +
+      "comment",
+      Seq(EventElementBlock("Bed A", 12345, 50000))))
+    //Test Case 1 - correct userpostroute should lead to complete and confirm mail
+    "evolve a correct userpost to a a mail with confirm link and a complete" in {
+      val oldmailersize = mailer.notifications.size
+      Post(routecontainer.userPostPath, correctUserpostJson) ~>
+        addCredentials(BasicHttpCredentials(username, userpassword)) ~> route ~> check {
+        responseAs[String] shouldEqual routecontainer.userresponsetext
+      }
+      mailer.notifications.size shouldEqual (oldmailersize + 1)
+      mailer.notifications.last.sumOfFlags shouldEqual (1) //confirm email link notification
+    }
+
+    //Test Case 2 - nonsensical json should lead to reject
+    def nonsensicaluserpostjson : String = "{'hackidiy hack' : true}"
+    "reject nonsensical userposts" in {
+      Post(routecontainer.userPostPath, nonsensicaluserpostjson) ~>
+        addCredentials(BasicHttpCredentials(username, userpassword)) ~> route ~> check {
+        handled shouldEqual false
+      }
+    }
+
+    //Test Case 3 - superuserroute with delete should lead to complete and delete from db and mails
+    "complete a superuserpost based delete" in {
+      val dbvals = fillDatabase()
+      def idToDeleteBySuperuser = dbvals.head.id
+      def superuserpostdeletejson : String = write(SimpleSuperuserPost(idToDeleteBySuperuser, Some(true), None))
+      val oldmailersize = mailer.notifications.size
+      Await.result(database.retrieveSpecific(idToDeleteBySuperuser), Duration(1, "second")).isDefined shouldEqual (true)
+
+      Post(routecontainer.superuserPostPath, superuserpostdeletejson) ~>
+        addCredentials(BasicHttpCredentials(superusername, superuserpassword)) ~> route ~> check {
+        responseAs[String] shouldEqual s"Event with ID = $idToDeleteBySuperuser was deleted"
+      }
+      Await.result(database.retrieveSpecific(idToDeleteBySuperuser), Duration(1, "second")) shouldEqual (None)
+      mailer.notifications.size shouldEqual (oldmailersize + 1)
+      mailer.notifications.last.sumOfFlags shouldEqual (4) //decline to user notification
+    }
+
+    //Test Case 4 - superuserroute with confirm should lead to complete and db changes and mails
+    "complete a superuserpost based confirm" in {
+      val dbvals = fillDatabase()
+      def idToConfirmBySuperuser = dbvals.head.id
+      def superuserpostconfirmjson : String = write(SimpleSuperuserPost(idToConfirmBySuperuser, None, Some(true)))
+      val oldmailersize = mailer.notifications.size
+      Await.result(database.retrieveSpecific(idToConfirmBySuperuser), Duration(1, "second")).get.confirmedBySupseruser
+        .shouldEqual (false)
+
+      Post(routecontainer.superuserPostPath, superuserpostconfirmjson) ~>
+        addCredentials(BasicHttpCredentials(superusername, superuserpassword)) ~> route ~> check {
+        responseAs[String] shouldEqual s"Event with ID = ${idToConfirmBySuperuser} was confirmed"
+      }
+      Await.result(database.retrieveSpecific(idToConfirmBySuperuser), Duration(1, "second")).get.confirmedBySupseruser
+        .shouldEqual (true)
+      mailer.notifications.size shouldEqual (oldmailersize + 2)
+      mailer.notifications.apply(mailer.notifications.size - 2).sumOfFlags.shouldEqual (10)
+      mailer.notifications.last.sumOfFlags shouldEqual (2)
+    }
+
+    //Test Case 5 - superuserroute with unconfirm should lead to complete and db changes and mails
+    "complete a superuserpost based unconfirm" in {
+      val dbvals = fillDatabase()
+      def idToUnConfirmBySuperuser = dbvals.head.id
+      Await.result(database.updateConfirmation(idToUnConfirmBySuperuser, true), Duration(1, "second"))
+      def superuserpostunconfirmjson : String = write(SimpleSuperuserPost(idToUnConfirmBySuperuser, None, Some(false)))
+      val oldmailersize = mailer.notifications.size
+      Await.result(database.retrieveSpecific(idToUnConfirmBySuperuser), Duration(1, "second")).get.confirmedBySupseruser
+        .shouldEqual (true)
+
+      Post(routecontainer.superuserPostPath, superuserpostunconfirmjson) ~>
+        addCredentials(BasicHttpCredentials(superusername, superuserpassword)) ~> route ~> check {
+        responseAs[String] shouldEqual s"Event with ID = ${idToUnConfirmBySuperuser} was set to unconfirmed"
+      }
+      Await.result(database.retrieveSpecific(idToUnConfirmBySuperuser), Duration(1, "second")).get.confirmedBySupseruser
+        .shouldEqual (false)
+      mailer.notifications.size shouldEqual (oldmailersize + 1)
+      mailer.notifications.last.sumOfFlags shouldEqual (0)
+    }
   }
 }

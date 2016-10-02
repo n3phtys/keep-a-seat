@@ -34,6 +34,10 @@ class MockMailer extends MailNotifiable{
 
   override def sendNotYetConfirmedNotificationToUser(event: Event, deleteLink: String): Unit = notifications +=
     Notification(false, false, true, false, Seq(deleteLink), Some(event))
+
+  override def sendUnconfirmedNotificationToUser(event: Event): Unit = {
+    notifications += Notification(false, false, false, false, Seq.empty, Some(event))
+  }
 }
 
 object MockMailer {
@@ -41,6 +45,9 @@ object MockMailer {
   Boolean,
                                emailConfirmation : Boolean,
                                links : Seq[String],
-                               event : Option[Event])
+                               event : Option[Event]) {
+    def sumOfFlags : Int = (if(toSuperuserInsteadOfUser) 8 else 0) +(if(deleteConfirmation) 4 else 0) +(if
+    (confirmConfirmation) 2 else 0) +(if(emailConfirmation) 1 else 0)
+  }
 
 }

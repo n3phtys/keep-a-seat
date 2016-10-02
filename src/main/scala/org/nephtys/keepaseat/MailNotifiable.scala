@@ -7,6 +7,8 @@ import org.nephtys.keepaseat.internal.eventdata.Event
   */
 trait MailNotifiable {
 
+  def sendUnconfirmedNotificationToUser(event : Event)
+
   def sendEmailConfirmToUser(subpathlinkToConfirm: String, event : Event)
 
   def sendConfirmOrDeclineToSuperuser(subpathlinkToConfirm: String, subpathlinkToDecline: String) : Unit

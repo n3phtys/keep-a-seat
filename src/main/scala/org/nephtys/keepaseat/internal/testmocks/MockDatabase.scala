@@ -67,7 +67,7 @@ class MockDatabase extends Databaseable {
     retrieveSpecific(eventID).map((p : Option[Event]) => p match {
       case Some(event) => {
         db.update(eventID, event.copy(confirmedBySupseruser = confirmstatus))
-        Some(event)
+        Some(event.copy(confirmedBySupseruser = confirmstatus))
       }
       case None => None
     })

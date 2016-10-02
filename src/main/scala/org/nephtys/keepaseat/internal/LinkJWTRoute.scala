@@ -6,6 +6,7 @@ import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.unmarshalling.FromRequestUnmarshaller
 import org.nephtys.cmac.MacSource
+import org.nephtys.cmac.HmacHelper._
 import org.nephtys.keepaseat.{Databaseable, MailNotifiable}
 import org.nephtys.keepaseat.internal.configs.{Authenticators, PasswordConfig}
 import org.nephtys.keepaseat.internal.eventdata.Event
@@ -17,39 +18,12 @@ import org.nephtys.keepaseat.internal.linkkeys.{ConfirmationOrDeletion, Reservat
 class LinkJWTRoute()(implicit passwordConfig: () => PasswordConfig, macSource: MacSource, database: Databaseable,
                      mailer: MailNotifiable) {
 
-  //this does not require basic auth, but being safe is always better
+  import LinkJWTRoute._
 
-  val pathToEmailConfirmation: String = "confirmemail"
-  val pathToSuperuserConfirmation: String = "confirmreservation"
-
-
-  val emailConfirmSuccessText : String = "Your Reservation was successfully registered and your email address confirmed. The Administrator " +
-    "will be " +
-    "presented with your registration, and confirm or decline it soon. You will be notified by email " +
-    "afterwards" +
-    " " +
-    "in either " +
-    "case. Thank you for your understanding!"
-
-  val confirmReservationText : String = "You accepted the given reservation. You and the user will receive a notification email about " +
-    "the change."
-
-  val emailConfirmFailureText : String = "Sorry, but your reservation could not be made, as someone other has blocked the alloted " +
-    "timeslots in the meanwhile. Please try another reservation."
-
-  def subpathlinkToDeleteEventFromUserAfterConfirmation(event : Event) : String =  {
-    "/"+pathToSuperuserConfirmation + "?jwt=" + ConfirmationOrDeletion.fromForUser(event).toUrlencodedJWT
-  }
+  //this does not actually require basic auth, but being safe is always better
 
 
   def extractRoute: Route = emailConfirmationRoute ~ superuserConfirmationOrDeclineRoute
-
-
-  def computeLinkSubpathForEmailConfirmation(urlencodedjwt: String): String = "/"+pathToEmailConfirmation + "?jwt=" +
-  urlencodedjwt
-
-  def computeLinkSubpathForSuperuserConfirmation(urlencodedjwt: String): String = "/"+pathToSuperuserConfirmation + "?jwt=" + urlencodedjwt
-
 
   private def emailConfirmationRoute: Route = path(pathToEmailConfirmation) {
     authenticateBasic(passwordConfig.apply().realmForCredentials(), Authenticators.normalUserOrSuperuserAuthenticator
@@ -117,4 +91,43 @@ class LinkJWTRoute()(implicit passwordConfig: () => PasswordConfig, macSource: M
       }
     }
   }
+}
+
+object LinkJWTRoute {
+
+
+
+  val pathToEmailConfirmation: String = "confirmemail"
+  val pathToSuperuserConfirmation: String = "confirmreservation"
+
+
+  val emailConfirmSuccessText : String = "Your Reservation was successfully registered and your email address confirmed. The Administrator " +
+    "will be " +
+    "presented with your registration, and confirm or decline it soon. You will be notified by email " +
+    "afterwards" +
+    " " +
+    "in either " +
+    "case. Thank you for your understanding!"
+
+  val confirmReservationText : String = "You accepted the given reservation. You and the user will receive a notification email about " +
+    "the change."
+
+  val emailConfirmFailureText : String = "Sorry, but your reservation could not be made, as someone other has blocked the alloted " +
+    "timeslots in the meanwhile. Please try another reservation."
+
+  def subpathlinkToDeleteEventFromUserAfterConfirmation(event : Event)(implicit macSource: MacSource) : String =  {
+    "/"+pathToSuperuserConfirmation + "?jwt=" + ConfirmationOrDeletion.fromForUser(event).toUrlencodedJWT
+  }
+
+
+
+
+  def computeLinkSubpathForEmailConfirmation(urlencodedjwt: String): String = "/"+pathToEmailConfirmation + "?jwt=" +
+    urlencodedjwt
+
+  def computeLinkSubpathForEmailConfirmation(event : Event)(implicit macSource: MacSource): String = {
+    computeLinkSubpathForEmailConfirmation(event.toHMAC().toURLEncodedString().encodedString)
+  }
+
+  def computeLinkSubpathForSuperuserConfirmation(urlencodedjwt: String): String = "/"+pathToSuperuserConfirmation + "?jwt=" + urlencodedjwt
 }
