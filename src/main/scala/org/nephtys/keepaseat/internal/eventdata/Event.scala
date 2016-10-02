@@ -1,5 +1,7 @@
 package org.nephtys.keepaseat.internal.eventdata
 
+import org.nephtys.keepaseat.filter.XSSCleaner
+
 /**
   *
   * used in database, should be able to model every currently needed type of reservation (therefore does not have to be
@@ -24,6 +26,11 @@ case class Event(
   //require(elements.nonEmpty)
   //require(elements.forall(s => s!= null && s.nonEmpty && s.toLowerCase().trim().equals(s)))
 
+
+  def cleanHTML(implicit xSSCleaner: XSSCleaner) : Event = {
+      Event(id, elements.map(_.cleanHTML), xSSCleaner.removeHTML(name), xSSCleaner.removeHTML(email), xSSCleaner
+        .removeHTML(telephone), xSSCleaner.removeHTML(commentary), confirmedBySupseruser)
+  }
 }
 
 /**
@@ -36,4 +43,10 @@ case class EventElementBlock(
                             element : String,
                             from : Long,
                             to : Long
-                            )
+                            ) {
+
+  def cleanHTML(implicit xSSCleaner: XSSCleaner) : EventElementBlock = {
+    val d = xSSCleaner.removeHTML(element)
+    EventElementBlock(d, from, to)
+  }
+}

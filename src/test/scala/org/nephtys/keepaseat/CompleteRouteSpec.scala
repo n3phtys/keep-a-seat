@@ -16,6 +16,7 @@ import org.nephtys.keepaseat.internal.linkkeys.{ConfirmationOrDeletion, Reservat
 import org.nephtys.keepaseat.internal.testmocks.{MockDatabase, MockMailer}
 import spray.json._
 import DefaultJsonProtocol._
+import org.nephtys.keepaseat.filter.XSSCleaner
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.Duration
@@ -57,6 +58,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
 
   implicit val notifier = new MockMailer
   implicit val database = new MockDatabase
+  implicit val xss = new XSSCleaner()
 
   implicit val serverConfigSource: () => ServerConfig = () => new ServerConfig {
 
@@ -349,7 +351,6 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
       val max: Long = 9500
       val mustVals : Seq[Event] = dbvals.filter(e => Databaseable.intersect(min, e.elements.map(_.from).min, max, e
         .elements.map(_.to).max))
-      println(mustVals)
       assert(mustVals.size == 2)
       Get(retreiveLink + "?from=" + min + "&to=" + max) ~>
         addCredentials(BasicHttpCredentials(username, userpassword)) ~>

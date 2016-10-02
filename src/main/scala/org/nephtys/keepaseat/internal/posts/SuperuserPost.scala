@@ -5,4 +5,6 @@ package org.nephtys.keepaseat.internal.posts
   */
 sealed trait SuperuserPost {
 
+
+  def cleanHTML : SuperuserPost
 }

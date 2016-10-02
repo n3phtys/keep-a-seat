@@ -8,6 +8,7 @@ import Directives._
 import akka.http.scaladsl.model.headers.{BasicHttpCredentials, HttpChallenge}
 import org.nephtys.cmac.BasicAuthHelper.LoginData
 import org.nephtys.cmac.MacSource
+import org.nephtys.keepaseat.filter.XSSCleaner
 import org.nephtys.keepaseat.internal.{GetRetreiveRoute, LinkJWTRoute, StaticRoute}
 import org.nephtys.keepaseat.internal.configs.{PasswordConfig, ServerConfig}
 import org.nephtys.keepaseat.internal.eventdata.{Event, EventElementBlock}
@@ -69,6 +70,7 @@ object TestGround extends App {
 
     }
 
+  implicit val xss = new XSSCleaner()
 
   val routeContainer = new GetRetreiveRoute()
 

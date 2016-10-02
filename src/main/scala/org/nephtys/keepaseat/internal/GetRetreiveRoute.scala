@@ -9,6 +9,7 @@ import org.nephtys.keepaseat.internal.configs.{Authenticators, PasswordConfig}
 import spray.json._
 import DefaultJsonProtocol._
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
+import org.nephtys.keepaseat.filter.XSSCleaner
 import org.nephtys.keepaseat.internal.eventdata.{Event, EventElementBlock, EventSprayJsonFormat}
 
 
@@ -17,7 +18,9 @@ import org.nephtys.keepaseat.internal.eventdata.{Event, EventElementBlock, Event
 /**
   * Created by nephtys on 9/28/16.
   */
-class GetRetreiveRoute(implicit passwordConfig : () => PasswordConfig, database : Databaseable) extends Directives with
+class GetRetreiveRoute(implicit passwordConfig : () => PasswordConfig, database : Databaseable,
+                       xssCleaner : XSSCleaner) extends
+  Directives with
   EventSprayJsonFormat  {
 
   def receivePathWithoutSlashes = """events"""
@@ -29,7 +32,7 @@ class GetRetreiveRoute(implicit passwordConfig : () => PasswordConfig, database 
       parameters('from.as[Long], 'to.as[Long]) { (from, to) => {
           onSuccess(database.retrieve(from, to)) {a => {
             complete{
-              a
+              a.map(_.cleanHTML)
             }
           }
           }

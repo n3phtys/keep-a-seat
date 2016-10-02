@@ -11,6 +11,7 @@ import akka.actor.ActorRef
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.unmarshalling.FromRequestUnmarshaller
+import org.nephtys.keepaseat.filter.XSSCleaner
 
 /**
   * Created by nephtys on 9/28/16.
@@ -45,7 +46,8 @@ object KeepASeat {
                          passwordConfigSource : () => PasswordConfig,
                          analogInterfaceConfigSource : () => AnalogInterfaceConfig,
                          database : Databaseable,
-                         emailNotifier : MailNotifiable
+                         emailNotifier : MailNotifiable,
+                         xssCleaner : XSSCleaner
   ) : Route = {
     val retreiveRouter = new GetRetreiveRoute()
     val linkRouter = new LinkJWTRoute()
