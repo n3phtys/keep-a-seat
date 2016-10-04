@@ -8,19 +8,19 @@ import akka.http.scaladsl.unmarshalling.FromRequestUnmarshaller
 import akka.http.scaladsl.model.StatusCodes._
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server._
-import org.nephtys.keepaseat.internal.configs.ServerConfig
+import org.nephtys.keepaseat.internal.configs.{Authenticators, PasswordConfig, ServerConfig}
 
 /**
   * Created by nephtys on 9/28/16.
   */
-class StaticRoute()(implicit serverConfigSource : () => ServerConfig) {
-
-  //TODO: BasicAuth check
-
-
+class StaticRoute()(implicit serverConfigSource : () => ServerConfig, passwordConfig: () => PasswordConfig) {
   def extractRoute : Route = {
-    getFromDirectory(serverConfigSource.apply().pathToStaticWebDirectory) ~ pathSingleSlash(
+    authenticateBasic(passwordConfig.apply().realmForCredentials(), Authenticators.normalUserOrSuperuserAuthenticator(passwordConfig)) { username =>
+      getFromDirectory(serverConfigSource.apply().pathToStaticWebDirectory)
+    } ~ authenticateBasic(passwordConfig.apply().realmForCredentials(), Authenticators
+      .normalUserOrSuperuserAuthenticator(passwordConfig)) { username => pathSingleSlash {
       get(redirect("index.html", PermanentRedirect))
-    )
+    }
+    }
   }
 }

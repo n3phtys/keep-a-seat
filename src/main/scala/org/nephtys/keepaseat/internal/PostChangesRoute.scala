@@ -24,7 +24,10 @@ class PostChangesRoute(implicit passwordConfig : () => PasswordConfig, mailer : 
                        xssCleaner : XSSCleaner, validatorsUser : Seq[UserPostValidator], validatorsSuperuser :
                        Seq[SuperuserPostValidator]) {
 
-  //TODO: 2 x 2 tests for this route
+
+  //TODO: CSRF Protection:
+  //TODO: compare Origin and X-FORWARDED-HOST headers for first CSRF Protection Stage
+  //TODO: require "X-Requested-With: XMLHttpRequest" to guarantee same origin (as this is a custom header)
 
   private val userPostPathWithoutSlashes = "newevent"
   val userPostPath = "/"+userPostPathWithoutSlashes

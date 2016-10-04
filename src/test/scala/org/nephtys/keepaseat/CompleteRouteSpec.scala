@@ -88,23 +88,35 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
   val staticRoute = new StaticRoute().extractRoute
 
   "The Static Route" should {
+    "require basic auth on accessing a file" in {
+      Get("/file.txt") ~> staticRoute ~> check {
+        rejection shouldEqual authmissingreject
+      }
+    }
+
+    "require basic auth on root" in {
+      Get() ~> staticRoute ~> check {
+        rejection shouldEqual authmissingreject
+      }
+    }
+
     "return a txt-file in the web direcrory for /file.txt" in {
-      Get("file.txt") ~> staticRoute ~> check {
+      Get("/file.txt") ~> addCredentials(BasicHttpCredentials(username, userpassword)) ~> staticRoute ~> check {
         responseAs[String] shouldEqual fileTxtString
       }
     }
     "return a txt-file inside a subdirectory of /web" in {
-      Get("/subdirectory/deeper.txt") ~> staticRoute ~> check {
+      Get("/subdirectory/deeper.txt") ~> addCredentials(BasicHttpCredentials(username, userpassword)) ~> staticRoute ~> check {
         responseAs[String] shouldEqual deeperTxtString
       }
     }
     "return index.html if looking at path /index.html" in {
-      Get("/index.html") ~> staticRoute ~> check {
+      Get("/index.html") ~> addCredentials(BasicHttpCredentials(username, userpassword)) ~> staticRoute ~> check {
         responseAs[String] shouldEqual indexHTMLString
       }
     }
     "return index.html for empty path" in {
-      Get() ~> staticRoute ~> check {
+      Get() ~> addCredentials(BasicHttpCredentials(username, userpassword)) ~> staticRoute ~> check {
         responseAs[String] shouldEqual indexHTMLRedirect
       }
     }
@@ -120,6 +132,10 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
 
   val jwtRouteContainer = new LinkJWTRoute()
   val jwtRoute = jwtRouteContainer.extractRoute
+
+
+  def authmissingreject = AuthenticationFailedRejection.apply(AuthenticationFailedRejection.CredentialsMissing,
+    HttpChallenges.basic(passwordConfigSource.apply().realmForCredentials()))
 
   "The JWT-Link Route" should {
 
@@ -145,8 +161,6 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
       confirmingThisReservation = false, 14)
 
 
-    def authmissingreject = AuthenticationFailedRejection.apply(AuthenticationFailedRejection.CredentialsMissing,
-      HttpChallenges.basic(passwordConfigSource.apply().realmForCredentials()))
 
     "require basic auth on confirm-email" in {
       Get(LinkJWTRoute.computeLinkSubpathForEmailConfirmation(ReservationRequest.makeUrlencodedJWT(examplereservation))) ~> jwtRoute ~> check {
@@ -460,7 +474,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
 
   "The Complete Routeset" should {
 
-    //TODO: Test one case with normal reservation from start to finish (calling get route before, during, and after it)
+    //Test one case with normal reservation from start to finish (calling get route before, during, and after it)
     "allow a normal reservation from start to finish" in {
       import upickle.default._
       //combined route with own database and mailer
@@ -473,7 +487,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
         database = db, passwordConfigSource = this.passwordConfigSource,
         emailNotifier = mailer)
 
-      //TODO: fill/clear database and mockdatabase
+      //fill/clear database and mockdatabase
       val dbvals = fillDatabase()(db)
       val postBlocked : UserPost = SimpleUserPost("Eve", "Eve@somewhere.com", "0315235 2352432 23523", "just a normal" +
         " registration", dbvals.head.elements)
