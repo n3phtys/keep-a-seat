@@ -10,7 +10,9 @@ import org.nephtys.cmac.HmacHelper._
 import org.nephtys.keepaseat.{Databaseable, MailNotifiable}
 import org.nephtys.keepaseat.internal.configs.{Authenticators, PasswordConfig}
 import org.nephtys.keepaseat.internal.eventdata.Event
-import org.nephtys.keepaseat.internal.linkkeys.{ConfirmationOrDeletion, ReservationRequest}
+import org.nephtys.keepaseat.internal.linkkeys.{ConfirmationOrDeletion, ReservationRequest, SimpleReservation}
+
+import scala.util.{Failure, Success, Try}
 
 /**
   * Created by nephtys on 9/28/16.
@@ -30,26 +32,32 @@ class LinkJWTRoute()(implicit passwordConfig: () => PasswordConfig, macSource: M
     (passwordConfig)) { username =>
       get {
         parameter('jwt.as[String]) { urlencodedjwt => {
-          try {
-            val reservation = ReservationRequest.fromJWTString(urlencodedjwt).t
-            val event = reservation.toNewEventWithoutID
-            onSuccess(database.create(event)) {
-              case Some(ev) => {
-                //TODO: send emails
-                val encodedjwts: Seq[String] = Seq(true, false).map(b => ConfirmationOrDeletion.fromForSuperuser(ev, b)
-                  .toUrlencodedJWT)
-                val subpathlinks: Seq[String] = encodedjwts.map(computeLinkSubpathForSuperuserConfirmation)
-                mailer.sendConfirmOrDeclineToSuperuser(subpathlinks.head, subpathlinks.last)
-                mailer.sendNotYetConfirmedNotificationToUser(ev, subpathlinkToDeleteEventFromUserAfterConfirmation(ev))
-                complete(emailConfirmSuccessText)
-              }
-              case _ => {
-                complete(emailConfirmFailureText)
+          Try({
+            ReservationRequest.fromJWTString(urlencodedjwt)
+          }) match {
+            case Success(reservation) => {
+              val event = reservation.t.toNewEventWithoutID
+              onSuccess(database.create(event)) {
+                case Some(ev) => {
+                  //send emails
+                  val encodedjwts: Seq[String] = Seq(true, false).map(b => ConfirmationOrDeletion.fromForSuperuser(ev, b)
+                    .toUrlencodedJWT)
+                  val subpathlinks: Seq[String] = encodedjwts.map(computeLinkSubpathForSuperuserConfirmation)
+                  mailer.sendConfirmOrDeclineToSuperuser(subpathlinks.head, subpathlinks.last)
+                  mailer.sendNotYetConfirmedNotificationToUser(ev, subpathlinkToDeleteEventFromUserAfterConfirmation(ev))
+                  complete(emailConfirmSuccessText)
+                }
+                case _ => {
+                  complete(emailConfirmFailureText)
+                }
               }
             }
-          } catch {
-            case e : Exception => reject(akka.http.scaladsl.server.MalformedQueryParamRejection("jwt", "jwt unparsable"))
+            case Failure(e) => reject(akka.http.scaladsl.server.MalformedQueryParamRejection("jwt", "jwt for email " +
+              "confirm" +
+              " " +
+              s"unparsable${if(isDebug) " with Exception: "+e}"))
           }
+
 
         }
         }
@@ -82,7 +90,8 @@ class LinkJWTRoute()(implicit passwordConfig: () => PasswordConfig, macSource: M
               }
             }
           } catch {
-            case e : Exception => reject(akka.http.scaladsl.server.MalformedQueryParamRejection("jwt", "jwt unparsable"))
+            case e : Exception => reject(akka.http.scaladsl.server.MalformedQueryParamRejection("jwt", "jwt " +
+              "unparsable for super confirm or decline"))
           }
 
         }
@@ -94,6 +103,8 @@ class LinkJWTRoute()(implicit passwordConfig: () => PasswordConfig, macSource: M
 }
 
 object LinkJWTRoute {
+
+  def isDebug = true
 
 
 
@@ -122,12 +133,18 @@ object LinkJWTRoute {
 
 
 
-  def computeLinkSubpathForEmailConfirmation(urlencodedjwt: String): String = "/"+pathToEmailConfirmation + "?jwt=" +
+  def computeLinkSubpathForEmailConfirmation(urlencodedjwt: String): String = "/"+pathToEmailConfirmation +
+    "?jwt=" +
     urlencodedjwt
 
-  def computeLinkSubpathForEmailConfirmation(event : Event)(implicit macSource: MacSource): String = {
+  private def computeLinkSubpathForEmailConfirmation(event : Event)(implicit macSource: MacSource): String = { //is
+    // this ever needed?
     computeLinkSubpathForEmailConfirmation(event.toHMAC().toURLEncodedString().encodedString)
   }
+  def computeLinkSubpathForEmailConfirmation(reservationRequest: SimpleReservation)(implicit macSource: MacSource): String = {
+    computeLinkSubpathForEmailConfirmation(reservationRequest.toHMAC().toURLEncodedString().encodedString)
+  }
+
 
   def computeLinkSubpathForSuperuserConfirmation(urlencodedjwt: String): String = "/"+pathToSuperuserConfirmation + "?jwt=" + urlencodedjwt
 }

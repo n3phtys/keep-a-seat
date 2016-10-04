@@ -22,5 +22,5 @@ class XSSCleaner() {
         * @param untrustedHTML
         * @return
         */
-      def removeHTML(untrustedHTML : String) : String = policy.sanitize(untrustedHTML).replace("""&#64;""", """@""")
+      def removeHTML(untrustedHTML : String) : String = policy.sanitize(untrustedHTML).replace("""&#64;""", """@""").trim()
 }

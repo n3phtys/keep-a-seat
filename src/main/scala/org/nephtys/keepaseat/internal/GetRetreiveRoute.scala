@@ -32,7 +32,8 @@ class GetRetreiveRoute(implicit passwordConfig : () => PasswordConfig, database 
       parameters('from.as[Long], 'to.as[Long]) { (from, to) => {
           onSuccess(database.retrieve(from, to)) {a => {
             complete{
-              a.map(_.cleanHTML)
+              //TODO: json response header
+              a.map(_.cleanHTML) //TODO parse manually with upickle to guarantee output consistency
             }
           }
           }

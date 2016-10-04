@@ -44,11 +44,17 @@ class PostChangesRoute(implicit passwordConfig : () => PasswordConfig, mailer : 
             case Success(securedUserPost) => {
               //create jwt link
               val event : Event = securedUserPost.toEventWithoutID
-              //TODO: is this event even still free? (tested in jwt route anyway, but could be done here in addition too)
-              val jwtsubpathlinkEmailConfirm : String = LinkJWTRoute.computeLinkSubpathForEmailConfirmation(event)
-              //send to user to confirm
-              mailer.sendEmailConfirmToUser(jwtsubpathlinkEmailConfirm, event)
-              complete(userresponsetext)
+              //is this event even still free? (tested in jwt route anyway, but could be done here in addition too)
+              onSuccess(database.couldInsert(event)) {
+                case true => {
+                  val jwtsubpathlinkEmailConfirm : String = LinkJWTRoute.computeLinkSubpathForEmailConfirmation(securedUserPost.toReservation)
+                  //send to user to confirm
+                  mailer.sendEmailConfirmToUser(jwtsubpathlinkEmailConfirm, event)
+                  complete(userresponsetext)
+                }
+                case false => reject
+              }
+
           }
             case Failure(e) => {
               reject

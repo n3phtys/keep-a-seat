@@ -3,7 +3,7 @@ package org.nephtys.keepaseat.internal.testmocks
 import java.util.concurrent.atomic.AtomicLong
 
 import org.nephtys.keepaseat.Databaseable
-import org.nephtys.keepaseat.internal.eventdata.Event
+import org.nephtys.keepaseat.internal.eventdata.{Event, EventElementBlock}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -38,19 +38,16 @@ class MockDatabase extends Databaseable {
   def getUnconfirmedEventID : Option[(Long, String)] = Try(db.map(a => (a._2.id, a._2.email)).minBy(_._1)).toOption
 
   override def create(eventWithoutID: Event): Future[Option[Event]] = {
-    val from  = eventWithoutID.elements.map(_.from).min
-    val to    = eventWithoutID.elements.map(_.to).max
-    retrieve(from, to).map( indexedseq => {
-      if (indexedseq.isEmpty) {
+    couldInsert(eventWithoutID).map(b => {
+      if (b) {
         val newid = idSource.getAndIncrement()
         val eventWithID = eventWithoutID.copy(id = newid)
         db.put(newid, eventWithID)
         Some(eventWithID)
-      } else  {
+      } else {
         None
       }
-    }
-    )
+    })
   }
 
   override def delete(id: Long): Future[Option[Event]] = Future.successful {
@@ -71,5 +68,24 @@ class MockDatabase extends Databaseable {
       }
       case None => None
     })
+  }
+
+  override def couldInsert(event: Event): Future[Boolean] = {
+
+    val elements = event.elements.map(_.element)
+    def containsSharedElement(seq : Seq[EventElementBlock]) : Boolean = {
+      val se = seq.map(_.element)
+      elements.forall(s => !se.contains(s))
+    }
+    val from  = event.elements.map(_.from).min
+    val to    = event.elements.map(_.to).max
+    retrieve(from, to).map(_.map(_.elements).map(containsSharedElement)).map( indexedseq => {
+      if (indexedseq.isEmpty) {
+        true
+      } else  {
+        false
+      }
+    }
+    )
   }
 }

@@ -17,7 +17,7 @@ import org.nephtys.keepaseat.internal.testmocks.{MockDatabase, MockMailer}
 import spray.json._
 import DefaultJsonProtocol._
 import org.nephtys.keepaseat.filter.XSSCleaner
-import org.nephtys.keepaseat.internal.posts.{SimpleSuperuserPost, SimpleUserPost}
+import org.nephtys.keepaseat.internal.posts.{SimpleSuperuserPost, SimpleUserPost, UserPost}
 import org.nephtys.keepaseat.internal.validators.{BasicSuperuserPostValidator, SuperuserPostValidator, UserPostValidator}
 
 import scala.concurrent.{Await, Future}
@@ -27,7 +27,7 @@ import scala.concurrent.duration.Duration
   * Created by nephtys on 9/28/16.
   */
 class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest with
-  EventSprayJsonFormat{
+  EventSprayJsonFormat {
 
   val username = "john"
   val superusername = "superjohn"
@@ -62,8 +62,8 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
   implicit val database = new MockDatabase
   implicit val xss = new XSSCleaner()
 
-  implicit val validatorsUser : Seq[UserPostValidator] = Seq.empty
-  implicit val validatorsSuperuser :  Seq[SuperuserPostValidator] = Seq(new BasicSuperuserPostValidator())
+  implicit val validatorsUser: Seq[UserPostValidator] = Seq.empty
+  implicit val validatorsSuperuser: Seq[SuperuserPostValidator] = Seq(new BasicSuperuserPostValidator())
 
   implicit val serverConfigSource: () => ServerConfig = () => new ServerConfig {
 
@@ -123,8 +123,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
 
   "The JWT-Link Route" should {
 
-    def examplereservationlink: String = LinkJWTRoute.computeLinkSubpathForEmailConfirmation(examplereservation
-      .toURLencodedJWT())
+    def examplereservationlink: String = LinkJWTRoute.computeLinkSubpathForEmailConfirmation(examplereservation.toURLencodedJWT())
 
     def examplereservation: SimpleReservation = SimpleReservation(
       elements = Seq(EventElementBlock("Bed A", 9999, 9999 + (1000 * 3600 * 24))),
@@ -192,7 +191,9 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
       (examplereservation))
       val short = long.substring(0, long.length / 2)
       Get(short) ~> addCredentials(BasicHttpCredentials(username, userpassword)) ~> jwtRoute ~> check {
-        rejection shouldEqual akka.http.scaladsl.server.MalformedQueryParamRejection("jwt", "jwt unparsable")
+        rejection.asInstanceOf[akka.http.scaladsl.server.MalformedQueryParamRejection].errorMsg.startsWith("jwt for " +
+          "email confirm " +
+          "unparsable") shouldBe true
       }
     }
 
@@ -324,15 +325,13 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
   )
 
 
-
-  def fillDatabase(): Seq[Event] = {
-    database.clearDatabase()
-    Await.result(Future.sequence(eventsWithoutIDs.map(e => database.create(e))), Duration(1, "minute"))
-    database.getAll
+  def fillDatabase()(implicit db : MockDatabase): Seq[Event] = {
+    db.clearDatabase()
+    Await.result(Future.sequence(eventsWithoutIDs.map(e => db.create(e))), Duration(1, "minute"))
+    db.getAll
   }
 
   "The Retreive Route" should {
-
 
 
     val retreiveLink: String = retreiveRouteContainer.receivePath
@@ -354,7 +353,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
       val dbvals = fillDatabase()
       val min: Long = 2500
       val max: Long = 9500
-      val mustVals : Seq[Event] = dbvals.filter(e => Databaseable.intersect(min, e.elements.map(_.from).min, max, e
+      val mustVals: Seq[Event] = dbvals.filter(e => Databaseable.intersect(min, e.elements.map(_.from).min, max, e
         .elements.map(_.to).max))
       assert(mustVals.size == 2)
       Get(retreiveLink + "?from=" + min + "&to=" + max) ~>
@@ -374,11 +373,11 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
     import upickle.default._
 
     val routecontainer = new PostChangesRoute()
-      val route = routecontainer.extractRoute
+    val route = routecontainer.extractRoute
 
-    def correctUserpostJson : String = write(SimpleUserPost("john", "john@somewhere.org", "32525 555", "this is a " +
+    def correctUserpostJson: String = write(SimpleUserPost("john", "john@somewhere.org", "32525 555", "this is a " +
       "comment",
-      Seq(EventElementBlock("Bed A", 12345, 50000))))
+      Seq(EventElementBlock("Bed A", 24345, 50000))))
     //Test Case 1 - correct userpostroute should lead to complete and confirm mail
     "evolve a correct userpost to a a mail with confirm link and a complete" in {
       val oldmailersize = mailer.notifications.size
@@ -391,7 +390,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
     }
 
     //Test Case 2 - nonsensical json should lead to reject
-    def nonsensicaluserpostjson : String = "{'hackidiy hack' : true}"
+    def nonsensicaluserpostjson: String = "{'hackidiy hack' : true}"
     "reject nonsensical userposts" in {
       Post(routecontainer.userPostPath, nonsensicaluserpostjson) ~>
         addCredentials(BasicHttpCredentials(username, userpassword)) ~> route ~> check {
@@ -403,7 +402,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
     "complete a superuserpost based delete" in {
       val dbvals = fillDatabase()
       def idToDeleteBySuperuser = dbvals.head.id
-      def superuserpostdeletejson : String = write(SimpleSuperuserPost(idToDeleteBySuperuser, Some(true), None))
+      def superuserpostdeletejson: String = write(SimpleSuperuserPost(idToDeleteBySuperuser, Some(true), None))
       val oldmailersize = mailer.notifications.size
       Await.result(database.retrieveSpecific(idToDeleteBySuperuser), Duration(1, "second")).isDefined shouldEqual (true)
 
@@ -420,19 +419,19 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
     "complete a superuserpost based confirm" in {
       val dbvals = fillDatabase()
       def idToConfirmBySuperuser = dbvals.head.id
-      def superuserpostconfirmjson : String = write(SimpleSuperuserPost(idToConfirmBySuperuser, None, Some(true)))
+      def superuserpostconfirmjson: String = write(SimpleSuperuserPost(idToConfirmBySuperuser, None, Some(true)))
       val oldmailersize = mailer.notifications.size
       Await.result(database.retrieveSpecific(idToConfirmBySuperuser), Duration(1, "second")).get.confirmedBySupseruser
-        .shouldEqual (false)
+        .shouldEqual(false)
 
       Post(routecontainer.superuserPostPath, superuserpostconfirmjson) ~>
         addCredentials(BasicHttpCredentials(superusername, superuserpassword)) ~> route ~> check {
         responseAs[String] shouldEqual s"Event with ID = ${idToConfirmBySuperuser} was confirmed"
       }
       Await.result(database.retrieveSpecific(idToConfirmBySuperuser), Duration(1, "second")).get.confirmedBySupseruser
-        .shouldEqual (true)
+        .shouldEqual(true)
       mailer.notifications.size shouldEqual (oldmailersize + 2)
-      mailer.notifications.apply(mailer.notifications.size - 2).sumOfFlags.shouldEqual (10)
+      mailer.notifications.apply(mailer.notifications.size - 2).sumOfFlags.shouldEqual(10)
       mailer.notifications.last.sumOfFlags shouldEqual (2)
     }
 
@@ -441,19 +440,112 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
       val dbvals = fillDatabase()
       def idToUnConfirmBySuperuser = dbvals.head.id
       Await.result(database.updateConfirmation(idToUnConfirmBySuperuser, true), Duration(1, "second"))
-      def superuserpostunconfirmjson : String = write(SimpleSuperuserPost(idToUnConfirmBySuperuser, None, Some(false)))
+      def superuserpostunconfirmjson: String = write(SimpleSuperuserPost(idToUnConfirmBySuperuser, None, Some(false)))
       val oldmailersize = mailer.notifications.size
       Await.result(database.retrieveSpecific(idToUnConfirmBySuperuser), Duration(1, "second")).get.confirmedBySupseruser
-        .shouldEqual (true)
+        .shouldEqual(true)
 
       Post(routecontainer.superuserPostPath, superuserpostunconfirmjson) ~>
         addCredentials(BasicHttpCredentials(superusername, superuserpassword)) ~> route ~> check {
         responseAs[String] shouldEqual s"Event with ID = ${idToUnConfirmBySuperuser} was set to unconfirmed"
       }
       Await.result(database.retrieveSpecific(idToUnConfirmBySuperuser), Duration(1, "second")).get.confirmedBySupseruser
-        .shouldEqual (false)
+        .shouldEqual(false)
       mailer.notifications.size shouldEqual (oldmailersize + 1)
       mailer.notifications.last.sumOfFlags shouldEqual (0)
+    }
+  }
+
+
+
+  "The Complete Routeset" should {
+
+    //TODO: Test one case with normal reservation from start to finish (calling get route before, during, and after it)
+    "allow a normal reservation from start to finish" in {
+      import upickle.default._
+      //combined route with own database and mailer
+      implicit val db = new MockDatabase()
+      implicit val mailer = new MockMailer()
+      //implicit val password = this.passwordConfigSource
+      val route = KeepASeat.routeDefinitions()(userPostValidators = this.validatorsUser, superuserPostValidators =
+        this.validatorsSuperuser, serverConfigSource = this.serverConfigSource,
+        xssCleaner = this.xss, macSource = this.macSource,
+        database = db, passwordConfigSource = this.passwordConfigSource,
+        emailNotifier = mailer)
+
+      //TODO: fill/clear database and mockdatabase
+      val dbvals = fillDatabase()(db)
+      val postBlocked : UserPost = SimpleUserPost("Eve", "Eve@somewhere.com", "0315235 2352432 23523", "just a normal" +
+        " registration", dbvals.head.elements)
+      val postFree : UserPost = SimpleUserPost("Eve", "Eve@somewhere.com", "0315235 2352432 23523", "just a normal" +
+        " registration", Seq(EventElementBlock("Bed A", dbvals.map(_.elements.map(_.to).max).max + 1000, dbvals.map(_
+        .elements.map(_.to).max).max + 5000)))
+      val freeid : Long = dbvals.map(_.id).max + 1
+      val eventwithidUnconfirmed : Event = Event(freeid, postFree.elements, postFree.name, postFree.email, postFree
+        .telephone,
+        postFree.commentary, confirmedBySupseruser = false)
+      val firsgetShouldResult : Seq[Event] = dbvals
+      val secondgetShouldResult : Seq[Event] = firsgetShouldResult.+:(eventwithidUnconfirmed)
+      val thirdgetShouldResult : Seq[Event] = firsgetShouldResult.+:(
+        eventwithidUnconfirmed.copy(confirmedBySupseruser = true))
+      def emailconfirmlink : String = mailer.notifications.filter(e => e.sumOfFlags == 1).last.links.head
+      def superuserconfirmlink : String = mailer.notifications.filter(e => e.sumOfFlags == 8).last.links.head
+      def freepostresponsetext : String = "You have received an email containing a link. Press that link to confirm " +
+        "your email address."
+      def emailconfirmresponsetext : String = LinkJWTRoute.emailConfirmSuccessText
+      def superuserconfirmresponsetext : String = LinkJWTRoute.confirmReservationText
+
+      implicit val ordering : Ordering[Event] = new scala.math.Ordering[Event]() {
+        override def compare(x: Event, y: Event): Int = x.id.compareTo(y.id)
+      }
+
+      //get and verify results
+      val min: Long = Long.MinValue
+      val max: Long = Long.MaxValue
+      Get("/events" + "?from=" + min + "&to=" + max) ~>
+        addCredentials(BasicHttpCredentials(username, userpassword)) ~> route ~>  check {
+          responseAs[String].parseJson.convertTo[Seq[Event]].sorted shouldEqual firsgetShouldResult.sorted
+        }
+
+      //userpost on blocked time (should be rejected)
+      Post("/newevent", write(postBlocked)) ~>
+        addCredentials(BasicHttpCredentials(username, userpassword)) ~> route ~> check {
+        handled shouldEqual false
+      }
+
+      //userpost on time not blocked (should be accepted)
+      Post("/newevent", write(postFree)) ~>
+        addCredentials(BasicHttpCredentials(username, userpassword)) ~> route ~> check {
+        responseAs[String] shouldEqual freepostresponsetext
+      }
+
+      //extract confirm link from mailer & confirm via link
+      println(dbvals)
+      println(emailconfirmlink)
+      println(postFree)
+      Get(emailconfirmlink) ~>
+        addCredentials(BasicHttpCredentials(username, userpassword)) ~> route ~>  check {
+        responseAs[String] shouldEqual emailconfirmresponsetext
+      }
+
+      //get and check that event is inserted
+      Get("/events" + "?from=" + min + "&to=" + max) ~>
+        addCredentials(BasicHttpCredentials(username, userpassword)) ~> route ~>  check {
+        responseAs[String].parseJson.convertTo[Seq[Event]].sorted shouldEqual secondgetShouldResult.sorted
+      }
+      //extract superuser confirm link from mailer & confirm via link
+      Get(superuserconfirmlink) ~>
+        addCredentials(BasicHttpCredentials(superusername, superuserpassword)) ~> route ~>  check {
+        responseAs[String] shouldEqual superuserconfirmresponsetext
+      }
+      //get and check that event is inserted and both superuser and user received mail
+      Get("/events" + "?from=" + min + "&to=" + max) ~>
+        addCredentials(BasicHttpCredentials(username, userpassword)) ~> route ~>  check {
+        responseAs[String].parseJson.convertTo[Seq[Event]].sorted shouldEqual thirdgetShouldResult.sorted
+      }
+      println(mailer.notifications.map(_.sumOfFlags))
+      mailer.notifications.apply(mailer.notifications.size-2).sumOfFlags shouldEqual 10
+      mailer.notifications.apply(mailer.notifications.size-1).sumOfFlags shouldEqual 2
     }
   }
 }

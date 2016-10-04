@@ -104,6 +104,7 @@ class BasicSlickH2Database(db: Database) extends Databaseable {
     * @return
     */
   override def updateConfirmation(eventID: Long, confirmstatus: Boolean): Future[Option[Event]] = ??? //TODO: implement
+  override def couldInsert(event: Event): Future[Boolean] = ???
 }
 
 /**

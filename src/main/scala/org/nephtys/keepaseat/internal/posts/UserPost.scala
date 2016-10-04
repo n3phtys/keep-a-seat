@@ -2,6 +2,7 @@ package org.nephtys.keepaseat.internal.posts
 
 import org.nephtys.keepaseat.filter.XSSCleaner
 import org.nephtys.keepaseat.internal.eventdata.{Event, EventElementBlock}
+import org.nephtys.keepaseat.internal.linkkeys.{ReservationRequest, SimpleReservation}
 import org.nephtys.keepaseat.internal.validators.{UserPostValidator, ValidatorFailedException}
 
 /**
@@ -29,6 +30,8 @@ sealed trait UserPost {
 
   def toEventWithoutID : Event
 
+  def toReservation : SimpleReservation
+
   def sanitizeHTML(implicit xSSCleaner: XSSCleaner) :UserPost
 }
 
@@ -42,4 +45,7 @@ Seq[EventElementBlock])
   }
 
   override def toEventWithoutID: Event = Event(-1, elements, name, email, telephone, commentary, confirmedBySupseruser = false)
+
+  override def toReservation: SimpleReservation = SimpleReservation(elements, name, email, telephone, commentary,
+    ReservationRequest.randomNumber)
 }

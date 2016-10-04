@@ -3,6 +3,8 @@ package org.nephtys.keepaseat.internal.linkkeys
 import org.nephtys.cmac.{HmacValue, MacSource}
 import org.nephtys.keepaseat.internal.eventdata.{Event, EventElementBlock}
 
+import scala.util.Random
+
 /**
   * Created by nephtys on 9/28/16.
   */
@@ -41,4 +43,8 @@ object ReservationRequest {
   def fromJWTString(urlencodedjwt : String)(implicit macSource : MacSource) : HmacValue[ReservationRequest] = {
     urlencodedjwt.fromURLEncodedString.toHMAC[ReservationRequest]()
   }
+
+  //TODO: make real random, not this java.util.random crap
+  def randomNumber : Long = new Random().nextLong()
+
 }

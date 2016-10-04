@@ -8,6 +8,8 @@ import scala.concurrent.Future
   * Created by nephtys on 9/28/16.
   */
 trait Databaseable {
+  def couldInsert(event: Event) : Future[Boolean]
+
 
   def retrieve(fromDate : Long = 0, toDate : Long = Long.MaxValue) : Future[IndexedSeq[Event]]
   def retrieveSpecific(id : Long) : Future[Option[Event]]

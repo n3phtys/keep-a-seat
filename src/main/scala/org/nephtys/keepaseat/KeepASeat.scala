@@ -34,7 +34,6 @@ object KeepASeat {
     * @param userPostValidators
     * @param superuserPostValidators
     * @param passwordConfigSource
-    * @param analogInterfaceConfigSource
     * @param database
     * @param emailNotifier
     * @return
@@ -44,7 +43,6 @@ object KeepASeat {
                          userPostValidators : Seq[UserPostValidator],
                          superuserPostValidators : Seq[SuperuserPostValidator],
                          passwordConfigSource : () => PasswordConfig,
-                         analogInterfaceConfigSource : () => AnalogInterfaceConfig,
                          database : Databaseable,
                          emailNotifier : MailNotifiable,
                          xssCleaner : XSSCleaner
