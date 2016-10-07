@@ -17,7 +17,7 @@ import scala.util.{Failure, Success, Try}
 /**
   * Created by nephtys on 9/28/16.
   */
-class LinkJWTRoute()(implicit passwordConfig: () => PasswordConfig, macSource: MacSource, database: Databaseable,
+class LinkJWTRoute()(implicit passwordConfig: PasswordConfig, macSource: MacSource, database: Databaseable,
                      mailer: MailNotifiable) {
 
   import LinkJWTRoute._
@@ -28,7 +28,7 @@ class LinkJWTRoute()(implicit passwordConfig: () => PasswordConfig, macSource: M
   def extractRoute: Route = emailConfirmationRoute ~ superuserConfirmationOrDeclineRoute
 
   private def emailConfirmationRoute: Route = path(pathToEmailConfirmation) {
-    authenticateBasic(passwordConfig.apply().realmForCredentials(), Authenticators.normalUserOrSuperuserAuthenticator
+    authenticateBasic(passwordConfig.realmForCredentials(), Authenticators.normalUserOrSuperuserAuthenticator
     (passwordConfig)) { username =>
       get {
         parameter('jwt.as[String]) { urlencodedjwt => {
@@ -67,7 +67,7 @@ class LinkJWTRoute()(implicit passwordConfig: () => PasswordConfig, macSource: M
   }
 
   private def superuserConfirmationOrDeclineRoute: Route = path(pathToSuperuserConfirmation) {
-    authenticateBasic(passwordConfig.apply().realmForCredentials(), Authenticators.normalUserOrSuperuserAuthenticator
+    authenticateBasic(passwordConfig.realmForCredentials(), Authenticators.normalUserOrSuperuserAuthenticator
     (passwordConfig)) { username => //normal users can use this path too via their delete link.
       get {
         parameter('jwt.as[String]) { urlencodedjwt => {

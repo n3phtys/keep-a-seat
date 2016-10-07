@@ -1,5 +1,7 @@
+import java.io.{File, FileInputStream}
+
 import akka.actor.ActorSystem
-import akka.http.scaladsl.Http
+import akka.http.scaladsl.{ConnectionContext, Http, HttpsConnectionContext}
 import akka.stream.ActorMaterializer
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.testkit.ScalatestRouteTest
@@ -14,7 +16,7 @@ import org.nephtys.keepaseat.internal.configs.{PasswordConfig, ServerConfig}
 import org.nephtys.keepaseat.internal.eventdata.{Event, EventElementBlock}
 import org.nephtys.keepaseat.internal.linkkeys.{ConfirmationOrDeletion, ReservationRequest, SimpleReservation}
 import org.nephtys.keepaseat.internal.testmocks.MockDatabase
-import org.nephtys.keepaseat.{BasicSlickH2Database, Databaseable}
+import org.nephtys.keepaseat.{BasicSlickH2Database, Databaseable, KeepASeat}
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
@@ -36,6 +38,18 @@ object TestGround extends App {
   implicit val passwordConfigGetter = () => passwordConfig
 
 
+  implicit val serverConfig = new ServerConfig {
+
+    override def httpsPassword: Option[String] = Some("test")
+
+    override def port: Int = 8080
+
+    //assume "web" as default value
+    override def pathToStaticWebDirectory: String = "web"
+
+    override def filepathToDatabaseWithoutFileEnding: Option[String] = None
+  }
+
 
   val eventsWithoutIDs : Seq[Event] = Seq(
     Event(-1, Seq(EventElementBlock("Bed A", 1000, 2000)), "tom", "tom@mouse.com", "telephone", "event 1", false),
@@ -56,6 +70,7 @@ object TestGround extends App {
   implicit val actorSystem = ActorSystem("system")
 
   implicit val actorMaterializer = ActorMaterializer()
+
   val route =
     get {
       pathSingleSlash {
@@ -74,8 +89,16 @@ object TestGround extends App {
 
   val routeContainer = new GetRetreiveRoute()
 
-  val bindingFuture = Http().bindAndHandle(routeContainer.extractRoute, "localhost", 8080)
-  println(s"Server online at http://localhost:8080/\nPress RETURN to stop...")
+
+  val pkcs12file = new FileInputStream(new File("certs/keystore.p12"))
+
+
+
+  val https : HttpsConnectionContext = KeepASeat.createHTTPSContext(pkcs12file)
+  Http().setDefaultServerHttpContext(https)
+  val bindingFuture = Http().bindAndHandle(routeContainer.extractRoute ~ route, "localhost", serverConfig.port,
+    connectionContext =  https)
+  println(s"Server online at https://localhost:8080/\nPress RETURN to stop...")
   StdIn.readLine() // let it run until user presses return
   bindingFuture
     .flatMap(_.unbind()) // trigger unbinding from the port

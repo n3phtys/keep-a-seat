@@ -43,7 +43,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
   }
 
   val secretKey = org.nephtys.cmac.HmacHelper.keys.generateNewKey(256, "HmacSHA256")
-  implicit val macSource: MacSource = new MacSource(() => secretKey)
+  implicit val macSource: MacSource = new MacSource(secretKey)
 
 
   val indexHTMLString: String = readFile("""src/test/resources/web/index.html""")
@@ -66,19 +66,19 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
   implicit val validatorsUser: Seq[UserPostValidator] = Seq.empty
   implicit val validatorsSuperuser: Seq[SuperuserPostValidator] = Seq(new BasicSuperuserPostValidator())
 
-  implicit val serverConfigSource: () => ServerConfig = () => new ServerConfig {
+  implicit val serverConfigSource: ServerConfig =  new ServerConfig {
 
     //assume "web" as default value
     override def pathToStaticWebDirectory: String = "src/test/resources/web"
 
-    override def https: Boolean = false
 
     override def port: Int = 1234
 
     override def filepathToDatabaseWithoutFileEnding: Option[String] = None //should not be used anyway
+    override def httpsPassword: Option[String] = None
   }
 
-  implicit val passwordConfigSource: () => PasswordConfig = () => new PasswordConfig {
+  implicit val passwordConfigSource: PasswordConfig = new PasswordConfig {
     override def normalUser: LoginData = LoginData(username, userpassword)
 
     override def superUser: LoginData = LoginData(superusername, superuserpassword)
@@ -136,7 +136,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
 
 
   def authmissingreject = AuthenticationFailedRejection.apply(AuthenticationFailedRejection.CredentialsMissing,
-    HttpChallenges.basic(passwordConfigSource.apply().realmForCredentials()))
+    HttpChallenges.basic(passwordConfigSource.realmForCredentials()))
 
   "The JWT-Link Route" should {
 

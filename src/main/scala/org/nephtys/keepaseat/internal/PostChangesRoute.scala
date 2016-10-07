@@ -19,7 +19,7 @@ import scala.util.{Failure, Success, Try}
 /**
   * Created by nephtys on 9/28/16.
   */
-class PostChangesRoute(implicit passwordConfig: () => PasswordConfig, mailer: MailNotifiable,
+class PostChangesRoute(implicit passwordConfig: PasswordConfig, mailer: MailNotifiable,
                        database: Databaseable, macSource: MacSource,
                        xssCleaner: XSSCleaner, validatorsUser: Seq[UserPostValidator], validatorsSuperuser:
                        Seq[SuperuserPostValidator]) {
@@ -31,7 +31,7 @@ class PostChangesRoute(implicit passwordConfig: () => PasswordConfig, mailer: Ma
 
   def userpostroute = path(userPostPathWithoutSlashes) {
     csrfCheckForSameOrigin {
-      authenticateBasic(passwordConfig.apply().realmForCredentials(), Authenticators.normalUserOrSuperuserAuthenticator
+      authenticateBasic(passwordConfig.realmForCredentials(), Authenticators.normalUserOrSuperuserAuthenticator
       (passwordConfig)) { username =>
         post {
           entity(as[String]) { jsonstring =>
@@ -63,7 +63,7 @@ class PostChangesRoute(implicit passwordConfig: () => PasswordConfig, mailer: Ma
 
   def superuserpostroute: Route = path(superuserPostPathWithoutSlashes) {
     csrfCheckForSameOrigin {
-      authenticateBasic(passwordConfig.apply().realmForCredentials(), Authenticators.onlySuperuserAuthenticator
+      authenticateBasic(passwordConfig.realmForCredentials(), Authenticators.onlySuperuserAuthenticator
       (passwordConfig)) { username =>
         post {
           entity(as[String]) { jsonstring =>

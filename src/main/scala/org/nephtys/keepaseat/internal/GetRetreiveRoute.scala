@@ -18,7 +18,7 @@ import org.nephtys.keepaseat.internal.eventdata.{Event, EventElementBlock, Event
 /**
   * Created by nephtys on 9/28/16.
   */
-class GetRetreiveRoute(implicit passwordConfig : () => PasswordConfig, database : Databaseable,
+class GetRetreiveRoute(implicit passwordConfig : PasswordConfig, database : Databaseable,
                        xssCleaner : XSSCleaner) extends
   Directives with
   EventSprayJsonFormat  {
@@ -27,7 +27,7 @@ class GetRetreiveRoute(implicit passwordConfig : () => PasswordConfig, database 
   def receivePath = "/"+receivePathWithoutSlashes
 
   def extractRoute : Route = path(receivePathWithoutSlashes) {
-    authenticateBasic(passwordConfig.apply().realmForCredentials(), Authenticators.normalUserOrSuperuserAuthenticator
+    authenticateBasic(passwordConfig.realmForCredentials(), Authenticators.normalUserOrSuperuserAuthenticator
     (passwordConfig)) { username =>
       parameters('from.as[Long], 'to.as[Long]) { (from, to) => {
           onSuccess(database.retrieve(from, to)) {a => {
