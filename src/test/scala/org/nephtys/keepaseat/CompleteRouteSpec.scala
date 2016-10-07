@@ -137,6 +137,8 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
 
   def authmissingreject = AuthenticationFailedRejection.apply(AuthenticationFailedRejection.CredentialsMissing,
     HttpChallenges.basic(passwordConfigSource.realmForCredentials()))
+  def superauthmissingreject = AuthenticationFailedRejection.apply(AuthenticationFailedRejection.CredentialsMissing,
+    HttpChallenges.basic(passwordConfigSource.realmForCredentials()+"-adminrealm"))
 
   "The JWT-Link Route" should {
 
@@ -178,7 +180,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
       }
     }
 
-    "require superuser auth on confirm-reservation" in {
+    "require npormal user auth on confirm-reservation" in {
       if (database.getUnconfirmedEventID.isDefined) {
         database.create(examplereservation.toNewEventWithoutID)
       }
@@ -236,7 +238,8 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
       val userdeletelink: String = notifier.notifications.find(a => !a.toSuperuserInsteadOfUser).get.links.head
       val superuserconfirmlink: String = notifier.notifications.find(a => a.toSuperuserInsteadOfUser).get.links.head
       //call get on superuser confirm link (with auth)  => should update event in db
-      Get(superuserconfirmlink) ~> addCredentials(BasicHttpCredentials(username, userpassword)) ~> jwtRoute ~> check {
+      Get(superuserconfirmlink) ~> addCredentials(BasicHttpCredentials(superusername, superuserpassword)) ~> jwtRoute ~>
+        check {
         status.isSuccess() shouldEqual true
       }
       val databaseretreive2 = Await.result(database.retrieve(), Duration(1, "second"))
@@ -281,7 +284,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
       databaseretreive3.size shouldEqual 0
       notifier.notifications.size shouldEqual 4
       //call get on superuser confirm link (with auth) - should fail
-      Get(superuserconfirmlink) ~> addCredentials(BasicHttpCredentials(username, userpassword)) ~> jwtRoute ~> check {
+      Get(superuserconfirmlink) ~> addCredentials(BasicHttpCredentials(superusername, superuserpassword)) ~> jwtRoute ~> check {
         handled shouldEqual false
       }
       val databaseretreive2 = Await.result(database.retrieve(), Duration(1, "second"))
@@ -310,7 +313,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
       val userdeletelink: String = notifier.notifications.find(a => !a.toSuperuserInsteadOfUser).get.links.head
       val superuserdeletelink: String = notifier.notifications.find(a => a.toSuperuserInsteadOfUser).get.links.last
       //call get on superuser delete  link (with auth)  => should delete event in db
-      Get(superuserdeletelink) ~> addCredentials(BasicHttpCredentials(username, userpassword)) ~> jwtRoute ~> check {
+      Get(superuserdeletelink) ~> addCredentials(BasicHttpCredentials(superusername, superuserpassword)) ~> jwtRoute ~> check {
         status.isSuccess() shouldEqual true
       }
       val databaseretreive4 = Await.result(database.retrieve(), Duration(1, "second"))

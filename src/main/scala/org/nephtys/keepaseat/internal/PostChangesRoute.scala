@@ -63,7 +63,7 @@ class PostChangesRoute(implicit passwordConfig: PasswordConfig, mailer: MailNoti
 
   def superuserpostroute: Route = path(superuserPostPathWithoutSlashes) {
     csrfCheckForSameOrigin {
-      authenticateBasic(passwordConfig.realmForCredentials(), Authenticators.onlySuperuserAuthenticator
+      authenticateBasic(passwordConfig.realmForCredentials()+ "-adminrealm", Authenticators.onlySuperuserAuthenticator
       (passwordConfig)) { username =>
         post {
           entity(as[String]) { jsonstring =>
