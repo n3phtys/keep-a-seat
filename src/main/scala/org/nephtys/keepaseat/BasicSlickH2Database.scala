@@ -27,24 +27,46 @@ import scala.concurrent.Future
 class BasicSlickH2Database(db: Database) extends Databaseable {
 
 
-  //TODO: implement with slick and embedded h2 and all required code
+  //def isDebug = false
 
 
-  override def retrieve(fromDate: Long, toDate: Long): Future[IndexedSeq[Event]] = db.run(BasicSlickH2Database
-    .queries.getBetween(fromDate, toDate)
-    .result).map(_.groupBy(_._1).map(a => {
-    def eventraw = a._1
-    def blocksraw = a._2.map(_._2).toIndexedSeq
-    val blocks: IndexedSeq[EventElementBlock] = blocksraw.map(p => EventElementBlock(p._3, p._4, p._5))
-    Event(eventraw._1, blocks, eventraw._2, eventraw._3, eventraw._4, eventraw._5, eventraw._6)
-  }).toIndexedSeq)
+  override def retrieve(fromInclusiveDate: Long, toExclusiveDate: Long): Future[IndexedSeq[Event]] = {
+    /*if(isDebug) {
+      println(s"Retreiving $fromInclusiveDate - $toExclusiveDate: ${
+        Await.result(db.run(BasicSlickH2Database
+          .queries.getBetween(fromInclusiveDate, toExclusiveDate)
+          .result), Duration(10, "seconds"))
+      }")
+      println(s"Table Events: ${
+        Await.result(db.run(BasicSlickH2Database.tableDefinitions.events.result), Duration(10,
+          "seconds"))
+      }")
+      println(s"Table Blocks: ${
+        Await.result(db.run(BasicSlickH2Database.tableDefinitions.blocks.result), Duration(10,
+          "seconds"))
+      }")
+    }*/
+
+    db.run(BasicSlickH2Database
+      .queries.getBetween(fromInclusiveDate, toExclusiveDate)
+      .result).map(_.groupBy(_._1).map(a => {
+      def eventraw = a._1
+      def blocksraw = a._2.map(_._2).toIndexedSeq
+      val blocks: IndexedSeq[EventElementBlock] = blocksraw.map(p => EventElementBlock(p._3, p._4, p._5))
+      Event(eventraw._1, blocks, eventraw._2, eventraw._3, eventraw._4, eventraw._5, eventraw._6)
+    }).toIndexedSeq)
+  }
 
   override def update(event: Event): Future[Option[Event]] = {
-    retrieveSpecific(event.id).map(_.isDefined).flatMap(b => if (b) {
-      val updateBlocks = db.run(BasicSlickH2Database.queries.updateBlocks(event.id, event.elements))
-      val updateEvent = db.run(BasicSlickH2Database.queries.updateEvent(event))
-      val fseq: Future[_] = Future.sequence(Seq(updateBlocks, updateEvent))
-      fseq.map(a => Some(event))
+    println(s"Updating event to $event")
+    retrieveSpecific(event.id).map(a => {
+      println(s"Retrieving in update with result $a vs updated: $event")
+      a
+    }).flatMap(oldevent => if (oldevent.isDefined) {
+      val updated = db.run(DBIO.seq(BasicSlickH2Database.queries.updateBlocks(event.id, event.elements),
+          BasicSlickH2Database.queries.updateEvent(event)
+      ))
+      updated.map(a => Some(event))
     } else {
       Future.successful(None)
     })
@@ -55,7 +77,16 @@ class BasicSlickH2Database(db: Database) extends Databaseable {
 
     val from = eventWithoutID.elements.map(_.from).min
     val to = eventWithoutID.elements.map(_.to).max
-    val free: Future[Boolean] = retrieve(from, to).map(_.isEmpty)
+
+    val eles = eventWithoutID.elements.map(_.element)
+
+    //check against specific elements
+    val blockingElements : Future[Seq[String]] = retrieve(from, to).map(a => a.flatMap(_.elements.map(_.element)))
+    val free: Future[Boolean] = blockingElements.map(seq => eles.forall(k => !seq.contains(k)))
+    println("in Create")
+    println(Await.result(blockingElements, Duration(10, "seconds")))
+    println(Await.result(free, Duration(10, "seconds")))
+
     val eventinsert: Future[(Boolean, Long)] = free.flatMap(b => if (b) {
       db.run(BasicSlickH2Database.queries
         .insertEvent
@@ -64,6 +95,7 @@ class BasicSlickH2Database(db: Database) extends Databaseable {
       Future.successful(b, 0.asInstanceOf[Long])
     })
     val blockInsert: Future[(Boolean, Long)] = eventinsert.flatMap(tuple => {
+      println("Tuple" + tuple)
       if (tuple._1) {
         db.run(BasicSlickH2Database.queries.insertBlocks(tuple._2, eventWithoutID.elements)).map(a => tuple)
       } else {
@@ -103,8 +135,19 @@ class BasicSlickH2Database(db: Database) extends Databaseable {
     * @param confirmstatus
     * @return
     */
-  override def updateConfirmation(eventID: Long, confirmstatus: Boolean): Future[Option[Event]] = ??? //TODO: implement
-  override def couldInsert(event: Event): Future[Boolean] = ???
+  override def updateConfirmation(eventID: Long, confirmstatus: Boolean): Future[Option[Event]] = {
+    db.run(BasicSlickH2Database.queries.updateConfirmation(eventID, confirmstatus)).flatMap(i => if (i == 1) {
+      retrieveSpecific(eventID)
+    } else {
+      println(s"Confirm update on $eventID was not successful")
+      Future.successful(None)
+    })
+  }
+  override def couldInsert(event: Event): Future[Boolean] = {
+    val from = event.elements.map(_.from).min
+    val to = event.elements.map(_.to).max
+    retrieve(from, to).map(_.isEmpty)
+  }
 }
 
 /**
@@ -118,7 +161,11 @@ object BasicSlickH2Database {
       ".Driver",
       keepAliveConnection = true)
     //db created, now create schema
-    Await.result(db.run(DBIO.seq(tableDefinitions.events.schema.create)), Duration.apply(1, "minute"))
+    println("Creating Schema")
+    Await.result(db.run(DBIO.seq((tableDefinitions.events.schema ++ tableDefinitions.blocks.schema).create)).map(a => println("Created schema: " + a)),
+      Duration.apply
+    (1,
+      "minute"))
     db
   }
 
@@ -194,12 +241,12 @@ object BasicSlickH2Database {
 
   object queries {
 
-    def getWithID(lid: Long) = tableDefinitions.events.join(tableDefinitions.blocks).on(_.id === _.ownid).filter(_
+    def getWithID(lid: Long) = tableDefinitions.events.join(tableDefinitions.blocks).on(_.id === _.eventID).filter(_
       ._1.id === lid)
 
     def getBetween(from: Long, to: Long) = tableDefinitions.events.join(tableDefinitions.blocks).on(_
       .id === _
-      .ownid).filterNot(b => b._2.from > to || b._2.to < from)
+      .eventID).filterNot(b => b._2.from > to || b._2.to <= from)
 
 
     def insertEvent(event: Event) = (tableDefinitions.events returning tableDefinitions.events.map(_.id)) +=
@@ -228,6 +275,11 @@ object BasicSlickH2Database {
       val q = tableDefinitions.events.filter(_.id === updatedElement.id).map(e => {
         (e.name, e.email, e.telephone, e.commentary, e.confirmedBySupseruser)
       }).update(tupleWithOutID(updatedElement))
+      q
+    }
+
+    def updateConfirmation(id : Long, newconfirmation : Boolean) = {
+      val q = tableDefinitions.events.filter(_.id === id).map(e => e.confirmedBySupseruser).update(newconfirmation)
       q
     }
 

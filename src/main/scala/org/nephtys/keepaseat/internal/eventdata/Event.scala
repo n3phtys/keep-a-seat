@@ -22,6 +22,11 @@ case class Event(
                 confirmedBySupseruser : Boolean
                 ) {
 
+  assert(elements.forall(b => b.from < b.to))
+  assert(elements.nonEmpty)
+  assert(elements.map(_.from).distinct.size == 1)
+  assert(elements.map(_.to).distinct.size == 1)
+
   //TODO: check these in validator before creating events
   //require(elements.nonEmpty)
   //require(elements.forall(s => s!= null && s.nonEmpty && s.toLowerCase().trim().equals(s)))
@@ -31,6 +36,9 @@ case class Event(
       Event(id, elements.map(_.cleanHTML), xSSCleaner.removeHTML(name), xSSCleaner.removeHTML(email), xSSCleaner
         .removeHTML(telephone), xSSCleaner.removeHTML(commentary), confirmedBySupseruser)
   }
+
+
+  def equalExceptID(other : Event) : Boolean = this.copy(id = other.id).equals(other)
 }
 
 /**
@@ -41,8 +49,8 @@ case class Event(
   */
 case class EventElementBlock(
                             element : String,
-                            from : Long,
-                            to : Long
+                            from : Long, //inclusive
+                            to : Long //exclusive
                             ) {
 
   def cleanHTML(implicit xSSCleaner: XSSCleaner) : EventElementBlock = {

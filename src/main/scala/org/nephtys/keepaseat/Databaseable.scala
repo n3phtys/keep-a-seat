@@ -10,8 +10,7 @@ import scala.concurrent.Future
 trait Databaseable {
   def couldInsert(event: Event) : Future[Boolean]
 
-
-  def retrieve(fromDate : Long = 0, toDate : Long = Long.MaxValue) : Future[IndexedSeq[Event]]
+  def retrieve(fromInclusiveDate : Long = 0, toExclusiveDate : Long = Long.MaxValue) : Future[IndexedSeq[Event]]
   def retrieveSpecific(id : Long) : Future[Option[Event]]
   def update(event : Event) : Future[Option[Event]]
   def create(eventWithoutID : Event) : Future[Option[Event]] //can return NONE if not finding any place in the DB
@@ -33,10 +32,10 @@ object Databaseable {
     assert(inclusiveAbegin < exclusiveAend)
     assert(inclusiveBbegin < exclusiveBend)
 
-        if (inclusiveAbegin > exclusiveBend) {
+        if (inclusiveAbegin >= exclusiveBend) {
           //A comes after B completely
           false
-        } else if (inclusiveBbegin > exclusiveAend) {
+        } else if (inclusiveBbegin >= exclusiveAend) {
           //B comes after A completely
           false
         } else {

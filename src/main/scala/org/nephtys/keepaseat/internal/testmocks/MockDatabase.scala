@@ -20,8 +20,8 @@ class MockDatabase extends Databaseable {
 
   private val idSource = new AtomicLong(1)
 
-  override def retrieve(fromDate: Long, toDate: Long): Future[IndexedSeq[Event]] = Future.successful(db.values.filter(event => {
-    event.elements.exists(b => Databaseable.intersect(fromDate, b.from, toDate, b.to))
+  override def retrieve(fromInclusiveDate: Long, toExclusiveDate: Long): Future[IndexedSeq[Event]] = Future.successful(db.values.filter(event => {
+    event.elements.exists(b => Databaseable.intersect(fromInclusiveDate, b.from, toExclusiveDate, b.to))
   }).toIndexedSeq)
 
   override def update(event: Event): Future[Option[Event]] = Future.successful({
@@ -75,17 +75,10 @@ class MockDatabase extends Databaseable {
     val elements = event.elements.map(_.element)
     def containsSharedElement(seq : Seq[EventElementBlock]) : Boolean = {
       val se = seq.map(_.element)
-      elements.forall(s => !se.contains(s))
+      elements.exists(s => se.contains(s))
     }
     val from  = event.elements.map(_.from).min
     val to    = event.elements.map(_.to).max
-    retrieve(from, to).map(_.map(_.elements).map(containsSharedElement)).map( indexedseq => {
-      if (indexedseq.isEmpty) {
-        true
-      } else  {
-        false
-      }
-    }
-    )
+    retrieve(from, to).map(s => s.flatMap(_.elements)).map(seq => !containsSharedElement(seq))
   }
 }

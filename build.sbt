@@ -5,7 +5,6 @@ version := "0.0"
 scalaVersion := "2.11.8"
 
 val scalacmcurl =  "https://github.com/n3phtys/scala-cmac.git"
-val scavalueurl = "https://github.com/n3phtys/scavalue-loader.git"
 
 
 
@@ -21,7 +20,6 @@ val htmlsanitizerV   = "20160924.1"
 
 
 lazy val cmacProject = RootProject(uri(scalacmcurl))
-lazy val scavalueProject = RootProject(uri(scavalueurl))
 
 
 // Library dependencies
@@ -30,7 +28,7 @@ lazy val root = Project("keep-a-seat", file("."))
     publish := {},
     publishLocal := {}
   )
-  .dependsOn(cmacProject, scavalueProject)
+  .dependsOn(cmacProject)
   .settings(
     libraryDependencies ++= Seq(
       "com.typesafe.akka"   %% "akka-actor" % akkaV,
