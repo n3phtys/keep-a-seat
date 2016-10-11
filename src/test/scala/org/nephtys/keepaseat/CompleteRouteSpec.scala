@@ -145,7 +145,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
     def examplereservationlink: String = LinkJWTRoute.computeLinkSubpathForEmailConfirmation(examplereservation.toURLencodedJWT())
 
     def examplereservation: SimpleReservation = SimpleReservation(
-      elements = Seq(EventElementBlock("Bed A", 9999, 9999 + (1000 * 3600 * 24))),
+      elements = Seq(EventElementBlock("Bed A", System.currentTimeMillis() + 9999, System.currentTimeMillis() +  9999 + (1000 * 3600 * 24))),
       name = "chris",
       email = "chris@somwhere.org",
       telephone = "013264355523434",
@@ -508,9 +508,9 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
 
       //fill/clear database and mockdatabase
       val dbvals = fillDatabase()(db)
-      val postBlocked: UserPost = SimpleUserPost("Eve", "Eve@somewhere.com", "0315235 2352432 23523", "just a normal" +
+      val postBlocked: SimpleUserPost = SimpleUserPost("Eve", "Eve@somewhere.com", "0315235 2352432 23523", "just a normal" +
         " registration", dbvals.head.elements)
-      val postFree: UserPost = SimpleUserPost("Eve", "Eve@somewhere.com", "0315235 2352432 23523", "just a normal" +
+      val postFree: SimpleUserPost = SimpleUserPost("Eve", "Eve@somewhere.com", "0315235 2352432 23523", "just a normal" +
         " registration", Seq(EventElementBlock("Bed A", dbvals.map(_.elements.map(_.to).max).max + 1000, dbvals.map(_
         .elements.map(_.to).max).max + 5000)))
       val freeid: Long = dbvals.map(_.id).max + 1

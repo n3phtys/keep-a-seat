@@ -8,7 +8,7 @@ import org.nephtys.keepaseat.internal.validators.{UserPostValidator, ValidatorFa
 /**
   * Created by nephtys on 9/28/16.
   */
-sealed trait UserPost {
+trait UserPost {
 
   def email : String
   def name : String

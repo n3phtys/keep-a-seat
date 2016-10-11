@@ -74,9 +74,17 @@ case class DeleteFromUserAfterCreation(eventid : Long, email : String, randomNum
     * @return
     */
   override def writeUpdateOrRemoveToDatabase(implicit database: Databaseable): Future[Option[(Boolean, Event)]] = {
-      database.delete(eventid).map(a =>  if (a.isDefined) {Some((false, a.get))} else {
-        None
-      })
+    //make this unable if current date > from date of reservation
+    val timestamp = System.currentTimeMillis()
+    database.retrieveSpecific(eventid).flatMap(opt =>  {
+      if (opt.isDefined && opt.get.elements.map(_.from).min > timestamp) {
+        database.delete(eventid).map(a =>  if (a.isDefined) {Some((false, a.get))} else {
+          None
+        })
+      } else {
+        Future.successful(None)
+      }
+    })
   }
 
   override def toUrlencodedJWT(implicit macSource: MacSource): String = ConfirmationOrDeletion.makeUrlencodedJWT(this)

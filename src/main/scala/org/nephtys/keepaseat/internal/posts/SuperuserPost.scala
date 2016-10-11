@@ -6,7 +6,7 @@ import org.nephtys.keepaseat.internal.validators.{SuperuserPostValidator, UserPo
 /**
   * Created by nephtys on 9/28/16.
   */
-sealed trait SuperuserPost {
+trait SuperuserPost {
 
   def eventID : Long
 

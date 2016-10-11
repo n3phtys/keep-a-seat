@@ -32,8 +32,11 @@ class GetRetreiveRoute(implicit passwordConfig : PasswordConfig, database : Data
       parameters('from.as[Long], 'to.as[Long]) { (from, to) => {
           onSuccess(database.retrieve(from, to)) {a => {
             complete{
+
               //TODO: json response header
-              a.map(_.cleanHTML) //TODO: parse manually with upickle to guarantee output consistency
+              //TODO: upickle instead of spray
+              //TODO: sort by from smallest date ascending
+              a.map(_.cleanHTML)
             }
           }
           }

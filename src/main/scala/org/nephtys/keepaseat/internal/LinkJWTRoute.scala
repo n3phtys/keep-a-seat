@@ -66,6 +66,8 @@ class LinkJWTRoute()(implicit passwordConfig: PasswordConfig, macSource: MacSour
     }
   }
 
+
+  //should not allow deletes by user after the fact
   private def superuserConfirmationOrDeclineRoute: Route = path(pathToSuperuserConfirmation) {
     authenticateBasic(passwordConfig.realmForCredentials(), Authenticators.normalUserOrSuperuserAuthenticator
     (passwordConfig)) { username => //normal users can use this path too via their delete link.
