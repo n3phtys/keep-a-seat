@@ -43,7 +43,7 @@ class LinkJWTRoute()(implicit passwordConfig: PasswordConfig, macSource: MacSour
                   val encodedjwts: Seq[String] = Seq(true, false).map(b => ConfirmationOrDeletion.fromForSuperuser(ev, b)
                     .toUrlencodedJWT)
                   val subpathlinks: Seq[String] = encodedjwts.map(computeLinkSubpathForSuperuserConfirmation)
-                  mailer.sendConfirmOrDeclineToSuperuser(subpathlinks.head, subpathlinks.last)
+                  mailer.sendConfirmOrDeclineToSuperuser(ev, subpathlinks.head, subpathlinks.last)
                   mailer.sendNotYetConfirmedNotificationToUser(ev, subpathlinkToDeleteEventFromUserAfterConfirmation(ev))
                   complete(emailConfirmSuccessText)
                 }

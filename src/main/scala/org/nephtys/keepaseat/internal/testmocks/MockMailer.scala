@@ -17,7 +17,8 @@ class MockMailer extends MailNotifiable{
   override def sendEmailConfirmToUser(subpathlinkToConfirm: String, event: Event): Unit = notifications +=
     Notification(false, false, false, true, Seq(subpathlinkToConfirm), Some(event))
 
-  override def sendConfirmOrDeclineToSuperuser(subpathlinkToConfirm: String, subpathlinkToDecline: String): Unit = notifications +=
+  override def sendConfirmOrDeclineToSuperuser(event: Event, subpathlinkToConfirm: String, subpathlinkToDecline:
+  String): Unit = notifications +=
     Notification(true, false, false, false, Seq(subpathlinkToConfirm, subpathlinkToDecline), None)
 
   override def sendConfirmedNotificationToSuperuser(event: Event): Unit = notifications +=
