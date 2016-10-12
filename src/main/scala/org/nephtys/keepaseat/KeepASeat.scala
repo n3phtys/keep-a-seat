@@ -35,7 +35,7 @@ object KeepASeat {
     * @param emailNotifier
     * @return
     */
-  def routeDefinitions()(implicit serverConfigSource: ServerConfig,
+  def routeDefinitions(rootpathdir : String = ".")(implicit serverConfigSource: ServerConfig,
                          macSource: MacSource,
                          userPostValidators: Seq[UserPostValidator],
                          superuserPostValidators: Seq[SuperuserPostValidator],
@@ -47,7 +47,7 @@ object KeepASeat {
     val retreiveRouter = new GetRetreiveRoute()
     val linkRouter = new LinkJWTRoute()
     val postRouter = new PostChangesRoute()
-    val staticRouter = new StaticRoute()
+    val staticRouter = new StaticRoute(rootpathdir)
 
     retreiveRouter.extractRoute ~ linkRouter.extractRoute ~ postRouter.extractRoute ~ staticRouter.extractRoute
   }

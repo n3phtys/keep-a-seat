@@ -45,7 +45,7 @@ object TestGround extends App {
     override def port: Int = 8080
 
     //assume "web" as default value
-    override def pathToStaticWebDirectory: String = "web"
+    override def pathToStaticWebDirectory(rootdirpath : String): String = rootdirpath + "/web"
 
     override def filepathToDatabaseWithoutFileEnding: Option[String] = None
   }

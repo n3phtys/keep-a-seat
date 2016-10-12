@@ -69,7 +69,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
   implicit val serverConfigSource: ServerConfig =  new ServerConfig {
 
     //assume "web" as default value
-    override def pathToStaticWebDirectory: String = "src/test/resources/web"
+    override def pathToStaticWebDirectory(rootdir : String): String = rootdir+"/web"
 
 
     override def port: Int = 1234
@@ -86,7 +86,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
     override def realmForCredentials(): String = "security realm for unit tests"
   }
 
-  val staticRoute = new StaticRoute().extractRoute
+  val staticRoute = new StaticRoute("./src/test/resources").extractRoute
 
   "The Static Route" should {
     "require basic auth on accessing a file" in {
@@ -102,6 +102,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
     }
 
     "return a txt-file in the web direcrory for /file.txt" in {
+      println(serverConfigSource.pathToStaticWebDirectory("./src/test/resources"))
       Get("/file.txt") ~> addCredentials(BasicHttpCredentials(username, userpassword)) ~> staticRoute ~> check {
         responseAs[String] shouldEqual fileTxtString
       }

@@ -10,7 +10,7 @@ trait ServerConfig {
   def port : Int
 
   //assume "web" as default value
-  def pathToStaticWebDirectory : String
+  def pathToStaticWebDirectory(rootdirpath : String) : String
 
 
   def filepathToDatabaseWithoutFileEnding : Option[String]
