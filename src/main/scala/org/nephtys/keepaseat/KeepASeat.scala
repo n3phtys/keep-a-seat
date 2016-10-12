@@ -8,7 +8,7 @@ import javax.net.ssl.{KeyManagerFactory, SSLContext, TrustManagerFactory}
 import akka.http.scaladsl.server.Route
 import org.nephtys.cmac.MacSource
 import org.nephtys.keepaseat.internal.{GetRetreiveRoute, LinkJWTRoute, PostChangesRoute, StaticRoute}
-import org.nephtys.keepaseat.internal.configs.{AnalogInterfaceConfig, CryptoConfig, PasswordConfig, ServerConfig}
+import org.nephtys.keepaseat.internal.configs.{AnalogInterfaceConfig, PasswordConfig, ServerConfig}
 import org.nephtys.keepaseat.internal.validators.{SuperuserPostValidator, UserPostValidator}
 import akka.actor.{ActorRef, ActorSystem}
 import akka.http.scaladsl.{ConnectionContext, HttpsConnectionContext}
