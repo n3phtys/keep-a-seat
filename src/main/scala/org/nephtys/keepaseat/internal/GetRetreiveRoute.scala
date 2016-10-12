@@ -27,7 +27,7 @@ class GetRetreiveRoute(implicit passwordConfig : PasswordConfig, database : Data
   def receivePath = "/"+receivePathWithoutSlashes
 
   def extractRoute : Route = path(receivePathWithoutSlashes) {
-    authenticateBasic(passwordConfig.realmForCredentials(), Authenticators.normalUserOrSuperuserAuthenticator
+    authenticateBasic(passwordConfig.realmForCredentials, Authenticators.normalUserOrSuperuserAuthenticator
     (passwordConfig)) { username =>
       parameters('from.as[Long], 'to.as[Long]) { (from, to) => {
           onSuccess(database.retrieve(from, to)) {a => {

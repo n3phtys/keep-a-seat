@@ -13,5 +13,5 @@ trait PasswordConfig {
   def superUser : LoginData
 
 
-  def realmForCredentials() : String
+  def realmForCredentials : String
 }

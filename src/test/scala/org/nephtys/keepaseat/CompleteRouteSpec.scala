@@ -137,9 +137,9 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
 
 
   def authmissingreject = AuthenticationFailedRejection.apply(AuthenticationFailedRejection.CredentialsMissing,
-    HttpChallenges.basic(passwordConfigSource.realmForCredentials()))
+    HttpChallenges.basic(passwordConfigSource.realmForCredentials))
   def superauthmissingreject = AuthenticationFailedRejection.apply(AuthenticationFailedRejection.CredentialsMissing,
-    HttpChallenges.basic(passwordConfigSource.realmForCredentials()+"-adminrealm"))
+    HttpChallenges.basic(passwordConfigSource.realmForCredentials+"-adminrealm"))
 
   "The JWT-Link Route" should {
 

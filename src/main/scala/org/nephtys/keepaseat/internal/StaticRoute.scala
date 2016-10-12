@@ -15,9 +15,9 @@ import org.nephtys.keepaseat.internal.configs.{Authenticators, PasswordConfig, S
   */
 class StaticRoute(rootpathdir : String)(implicit serverConfigSource : ServerConfig, passwordConfig: PasswordConfig) {
   def extractRoute : Route = {
-    authenticateBasic(passwordConfig.realmForCredentials(), Authenticators.normalUserOrSuperuserAuthenticator(passwordConfig)) { username =>
+    authenticateBasic(passwordConfig.realmForCredentials, Authenticators.normalUserOrSuperuserAuthenticator(passwordConfig)) { username =>
       getFromDirectory(serverConfigSource.pathToStaticWebDirectory(rootpathdir))
-    } ~ authenticateBasic(passwordConfig.realmForCredentials(), Authenticators
+    } ~ authenticateBasic(passwordConfig.realmForCredentials, Authenticators
       .normalUserOrSuperuserAuthenticator(passwordConfig)) { username => pathSingleSlash {
       get(redirect("index.html", PermanentRedirect))
     }
