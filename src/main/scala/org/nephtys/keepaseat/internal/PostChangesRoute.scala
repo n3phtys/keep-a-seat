@@ -141,10 +141,13 @@ object PostChangesRoute {
   def csrfCheckForSameOrigin(route: Route): Route = {
     extractRequest { request => {
       if (!equalOiriginAndXForwardedHostHeader(request.headers)) {
+        println("incoming post request not equalOiriginAndXForwardedHostHeader, see headers: " + request.headers)
         reject(MissingHeaderRejection(XForwardedHostHeader), MissingHeaderRejection(OriginHeader))
       } else if (!hasXRequestedWith(request.headers)) {
+        println("incoming post request not hasXRequestedWith, see headers: " + request.headers)
         reject(MissingHeaderRejection(XRequestedWithHeader))
       } else {
+        println("post request passed CSRF check")
         route
       }
     }
@@ -159,8 +162,11 @@ object PostChangesRoute {
     if (origin.isDefined && xforwardedhost.isDefined) {
       val a = Try(new URI(origin.get.value().trim())).toOption
       val b = Try(new URI(xforwardedhost.get.value().trim())).toOption
-      a.isDefined && b.isDefined && ((isLocalhost(a.get) && isLocalhost(b.get)) || a.get.getHost.trim.equals(b.get
-        .getHost.trim))
+      println(s"origin headers: $a vs $b")
+      def defined = a.isDefined && b.isDefined
+      def localhost = isLocalhost(a.get) && isLocalhost(b.get)
+      def samehost = a.get.getHost.trim.equals(b.get.getHost.trim)
+      defined && (localhost || samehost)
       //make java URI class deal with this for us
     } else {
       false
@@ -170,15 +176,22 @@ object PostChangesRoute {
   def OriginHeader = """Origin"""
 
   def isLocalhost(uri: URI): Boolean = {
+    println(s"checking localhost for uri $uri with ascii = ${uri.toASCIIString}")
+    /* //this is wrong and commented out for that reason:
     if (uri.getHost != null) {
+      println("host not null")
       false
-    } else if (uri.toASCIIString.startsWith("http://localhost:")) {
+    } else*/ if (uri.toASCIIString.startsWith("http://localhost:")) {
+      println("startswith " + "http://localhost:")
       true
     } else if (uri.toASCIIString.startsWith("https://localhost:")) {
+      println("startswith " + "https://localhost:")
       true
     } else if (uri.toASCIIString.startsWith("localhost:")) {
+      println("startswith " + "localhost:")
       true
     } else {
+      println("else")
       false
     }
   }
