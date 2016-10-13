@@ -34,9 +34,11 @@ class PostChangesRoute(implicit passwordConfig: PasswordConfig, mailer: MailNoti
       authenticateBasic(passwordConfig.realmForCredentials, Authenticators.normalUserOrSuperuserAuthenticator
       (passwordConfig)) { username =>
         post {
-          entity(as[String]) { jsonstring =>
+          entity(as[String]) { jsonstring => {
+            println(s"Incoming post: $jsonstring")
             Try(read[SimpleUserPost](jsonstring).sanitizeHTML.validateWithException) match {
               case Success(securedUserPost) => {
+                println("Succesful Userpost parse and validate")
                 //create jwt link
                 val event: Event = securedUserPost.toEventWithoutID
                 //is this event even still free? (tested in jwt route anyway, but could be done here in addition too)
@@ -52,10 +54,12 @@ class PostChangesRoute(implicit passwordConfig: PasswordConfig, mailer: MailNoti
 
               }
               case Failure(e) => {
+                println(s"Failure while parsing Userpost: $e")
                 reject
               }
             }
           }
+        }
         }
       }
     }
