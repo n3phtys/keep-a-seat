@@ -39,12 +39,16 @@ class LinkJWTRoute()(implicit passwordConfig: PasswordConfig, macSource: MacSour
               val event = reservation.t.toNewEventWithoutID
               onSuccess(database.create(event)) {
                 case Some(ev) => {
+                  val host : String = reservation.t.originHostWithProtocol
                   //send emails
-                  val encodedjwts: Seq[String] = Seq(true, false).map(b => ConfirmationOrDeletion.fromForSuperuser(ev, b)
+                  val encodedjwts: Seq[String] = Seq(true, false).map(b => ConfirmationOrDeletion.fromForSuperuser
+                  (reservation.t.originHostWithProtocol, ev, b)
                     .toUrlencodedJWT)
-                  val subpathlinks: Seq[String] = encodedjwts.map(computeLinkSubpathForSuperuserConfirmation)
+                  val subpathlinks: Seq[String] = encodedjwts.map(s =>
+                    computeLinkCompletepathForSuperuserConfirmation(host, s))
                   mailer.sendConfirmOrDeclineToSuperuser(ev, subpathlinks.head, subpathlinks.last)
-                  mailer.sendNotYetConfirmedNotificationToUser(ev, subpathlinkToDeleteEventFromUserAfterConfirmation(ev))
+                  mailer.sendNotYetConfirmedNotificationToUser(ev, reservation.t.originHostWithProtocol +
+                    completelinkToDeleteEventFromUserAfterConfirmation(host, ev))
                   complete(emailConfirmSuccessText)
                 }
                 case _ => {
@@ -77,8 +81,10 @@ class LinkJWTRoute()(implicit passwordConfig: PasswordConfig, macSource: MacSour
             val confirmation = ConfirmationOrDeletion.fromJWTString(urlencodedjwt).t
             onSuccess(confirmation.writeUpdateOrRemoveToDatabase) {
               case Some((true, event)) => {
+                val host : String = confirmation.hostWithProtocol
                 mailer.sendConfirmedNotificationToSuperuser(event)
-                mailer.sendConfirmedNotificationToUser(event, subpathlinkToDeleteEventFromUserAfterConfirmation(event))
+                mailer.sendConfirmedNotificationToUser(event, completelinkToDeleteEventFromUserAfterConfirmation
+                (host, event))
                 complete(confirmReservationText)
               }
               case Some((false, event)) => {
@@ -128,25 +134,28 @@ object LinkJWTRoute {
   val emailConfirmFailureText : String = "Sorry, but your reservation could not be made, as someone other has blocked the alloted " +
     "timeslots in the meanwhile. Please try another reservation."
 
-  def subpathlinkToDeleteEventFromUserAfterConfirmation(event : Event)(implicit macSource: MacSource) : String =  {
-    "/"+pathToSuperuserConfirmation + "?jwt=" + ConfirmationOrDeletion.fromForUser(event).toUrlencodedJWT
+  def completelinkToDeleteEventFromUserAfterConfirmation(host : String, event : Event)(implicit macSource: MacSource) :
+  String =  {
+    host + "/"+pathToSuperuserConfirmation + "?jwt=" + ConfirmationOrDeletion.fromForUser(host, event).toUrlencodedJWT
   }
 
 
 
 
-  def computeLinkSubpathForEmailConfirmation(urlencodedjwt: String): String = "/"+pathToEmailConfirmation +
-    "?jwt=" +
-    urlencodedjwt
+  def computeLinkCompletepathForEmailConfirmation(host : String, urlencodedjwt: String): String = host +
+    "/"+pathToEmailConfirmation + "?jwt=" + urlencodedjwt
 
-  private def computeLinkSubpathForEmailConfirmation(event : Event)(implicit macSource: MacSource): String = { //is
+  private def computeLinkCompletepathForEmailConfirmation(host : String, event : Event)(implicit macSource: MacSource)
+  : String = { //is
     // this ever needed?
-    computeLinkSubpathForEmailConfirmation(event.toHMAC().toURLEncodedString().encodedString)
+    computeLinkCompletepathForEmailConfirmation(host, event.toHMAC().toURLEncodedString().encodedString)
   }
-  def computeLinkSubpathForEmailConfirmation(reservationRequest: SimpleReservation)(implicit macSource: MacSource): String = {
-    computeLinkSubpathForEmailConfirmation(reservationRequest.toHMAC().toURLEncodedString().encodedString)
+  def computeLinkCompletepathForEmailConfirmation(host : String, reservationRequest: SimpleReservation)(implicit
+                                                                                                       macSource: MacSource): String = {
+    computeLinkCompletepathForEmailConfirmation(host, reservationRequest.toHMAC().toURLEncodedString().encodedString)
   }
 
 
-  def computeLinkSubpathForSuperuserConfirmation(urlencodedjwt: String): String = "/"+pathToSuperuserConfirmation + "?jwt=" + urlencodedjwt
+  def computeLinkCompletepathForSuperuserConfirmation(host : String, urlencodedjwt: String): String =
+    host + "/"+pathToSuperuserConfirmation + "?jwt=" + urlencodedjwt
 }

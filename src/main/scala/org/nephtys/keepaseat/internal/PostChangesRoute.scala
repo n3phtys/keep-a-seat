@@ -30,21 +30,22 @@ class PostChangesRoute(implicit passwordConfig: PasswordConfig, mailer: MailNoti
   def extractRoute: Route = userpostroute ~ superuserpostroute
 
   def userpostroute = path(userPostPathWithoutSlashes) {
-    csrfCheckForSameOrigin {
-      authenticateBasic(passwordConfig.realmForCredentials, Authenticators.normalUserOrSuperuserAuthenticator
+    csrfCheckForSameOrigin { headers =>
+    authenticateBasic(passwordConfig.realmForCredentials, Authenticators.normalUserOrSuperuserAuthenticator
       (passwordConfig)) { username =>
         post {
           entity(as[String]) { jsonstring => {
             println(s"Incoming post: $jsonstring")
             Try(read[SimpleUserPost](jsonstring).sanitizeHTML.validateWithException) match {
               case Success(securedUserPost) => {
+                val host : String = headers.find(_.is(XForwardedHostHeader.toLowerCase)).get.value()
                 println("Succesful Userpost parse and validate")
                 //create jwt link
                 val event: Event = securedUserPost.toEventWithoutID
                 //is this event even still free? (tested in jwt route anyway, but could be done here in addition too)
                 onSuccess(database.couldInsert(event)) {
                   case true => {
-                    val jwtsubpathlinkEmailConfirm: String = LinkJWTRoute.computeLinkSubpathForEmailConfirmation(securedUserPost.toReservation)
+                    val jwtsubpathlinkEmailConfirm: String = LinkJWTRoute.computeLinkCompletepathForEmailConfirmation(host, securedUserPost.toReservation(host))
                     //send to user to confirm
                     mailer.sendEmailConfirmToUser(jwtsubpathlinkEmailConfirm, event)
                     complete(userresponsetext)
@@ -66,7 +67,7 @@ class PostChangesRoute(implicit passwordConfig: PasswordConfig, mailer: MailNoti
   }
 
   def superuserpostroute: Route = path(superuserPostPathWithoutSlashes) {
-    csrfCheckForSameOrigin {
+    csrfCheckForSameOrigin { headers =>
       authenticateBasic(passwordConfig.realmForCredentials+ "-adminrealm", Authenticators.onlySuperuserAuthenticator
       (passwordConfig)) { username =>
         post {
@@ -86,11 +87,12 @@ class PostChangesRoute(implicit passwordConfig: PasswordConfig, mailer: MailNoti
                 } else if (securedSuperuserPost.confirm.isDefined) {
                   onSuccess(database.updateConfirmation(securedSuperuserPost.eventID, securedSuperuserPost.confirm.get)) {
                     case Some(event) => {
+                      val host : String = headers.find(_.is(XForwardedHostHeader.toLowerCase)).get.value()
                       //in case of complete, write mail to user
                       if (event.confirmedBySupseruser) {
                         mailer.sendConfirmedNotificationToSuperuser(event)
                         mailer.sendConfirmedNotificationToUser(event,
-                          LinkJWTRoute.subpathlinkToDeleteEventFromUserAfterConfirmation(event))
+                          LinkJWTRoute.completelinkToDeleteEventFromUserAfterConfirmation(host, event))
                       } else {
                         mailer.sendUnconfirmedNotificationToUser(event)
                       }
@@ -138,7 +140,8 @@ object PostChangesRoute {
   //compare Origin and X-FORWARDED-HOST headers for first CSRF Protection Stage
   //require "X-Requested-With: XMLHttpRequest" to guarantee same origin (as this is a custom header)
 
-  def csrfCheckForSameOrigin(route: Route): Route = {
+  def csrfCheckForSameOrigin(route: scala.collection.immutable.Seq[akka.http.scaladsl.model.HttpHeader] => Route):
+  Route = {
     extractRequest { request => {
       if (!equalOiriginAndXForwardedHostHeader(request.headers)) {
         println("incoming post request not equalOiriginAndXForwardedHostHeader, see headers: " + request.headers)
@@ -148,7 +151,7 @@ object PostChangesRoute {
         reject(MissingHeaderRejection(XRequestedWithHeader))
       } else {
         println("post request passed CSRF check")
-        route
+        route.apply(request.headers)
       }
     }
     }

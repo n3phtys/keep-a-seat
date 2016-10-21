@@ -1,5 +1,7 @@
 package org.nephtys.keepaseat.internal.linkkeys
 
+import java.security.SecureRandom
+
 import org.nephtys.cmac.{HmacValue, MacSource}
 import org.nephtys.keepaseat.internal.eventdata.{Event, EventElementBlock}
 
@@ -10,7 +12,7 @@ import scala.util.Random
   */
 sealed trait ReservationRequest {
 
-
+  def originHostWithProtocol : String
   def elements : Seq[EventElementBlock]
   // values
   def name : String
@@ -25,7 +27,9 @@ sealed trait ReservationRequest {
   def toURLencodedJWT()(implicit macSource : MacSource) = ReservationRequest.makeUrlencodedJWT(this)
 }
 
-case class SimpleReservation(elements : Seq[EventElementBlock],
+case class SimpleReservation(
+                              originHostWithProtocol : String,
+                              elements : Seq[EventElementBlock],
                              name : String,
                              email : String,
                              telephone : String,
@@ -44,7 +48,6 @@ object ReservationRequest {
     urlencodedjwt.fromURLEncodedString.toHMAC[ReservationRequest]()
   }
 
-  //TODO: make real random, not this java.util.random crap
-  def randomNumber : Long = new Random().nextLong()
+  def randomNumber : Long = new SecureRandom().nextLong()
 
 }

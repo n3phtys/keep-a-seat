@@ -11,7 +11,7 @@ trait MailNotifiable {
 
   def sendEmailConfirmToUser(subpathlinkToConfirm: String, event : Event)
 
-  def sendConfirmOrDeclineToSuperuser(event: Event, subpathlinkToConfirm: String, subpathlinkToDecline: String) : Unit
+  def sendConfirmOrDeclineToSuperuser(event: Event, completesubpathlinkToConfirm: String, completelinkToDecline: String) : Unit
 
 
   def sendConfirmedNotificationToSuperuser(event : Event) : Unit

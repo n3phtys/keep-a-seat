@@ -143,9 +143,10 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
 
   "The JWT-Link Route" should {
 
-    def examplereservationlink: String = LinkJWTRoute.computeLinkSubpathForEmailConfirmation(examplereservation.toURLencodedJWT())
+    def examplereservationlink: String = LinkJWTRoute.computeLinkCompletepathForEmailConfirmation("", examplereservation
+      .toURLencodedJWT())
 
-    def examplereservation: SimpleReservation = SimpleReservation(
+    def examplereservation: SimpleReservation = SimpleReservation("",
       elements = Seq(EventElementBlock("Bed A", System.currentTimeMillis() + 9999, System.currentTimeMillis() +  9999 + (1000 * 3600 * 24))),
       name = "chris",
       email = "chris@somwhere.org",
@@ -157,17 +158,18 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
       (1000 *
         3600 * 24))))
 
-    def exampleconfirm(combine: (Long, String)): ConfirmationOrDeletion = SimpleConfirmationOrDeletion(combine._1,
+    def exampleconfirm(combine: (Long, String)): ConfirmationOrDeletion = SimpleConfirmationOrDeletion("",combine._1,
       combine._2,
       confirmingThisReservation = true, 13)
-    def exampledecline(combine: (Long, String)): ConfirmationOrDeletion = SimpleConfirmationOrDeletion(combine
+    def exampledecline(combine: (Long, String)): ConfirmationOrDeletion = SimpleConfirmationOrDeletion("",combine
       ._1, combine._2,
       confirmingThisReservation = false, 14)
 
 
 
     "require basic auth on confirm-email" in {
-      Get(LinkJWTRoute.computeLinkSubpathForEmailConfirmation(ReservationRequest.makeUrlencodedJWT(examplereservation))) ~> jwtRoute ~> check {
+      Get(LinkJWTRoute.computeLinkCompletepathForEmailConfirmation("",ReservationRequest.makeUrlencodedJWT
+      (examplereservation))) ~> jwtRoute ~> check {
         rejection shouldEqual authmissingreject
       }
     }
@@ -175,7 +177,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
 
     "work with user auth on confirm-email" in {
       //This does compile, red markers are intelliJ bugs
-      Get(LinkJWTRoute.computeLinkSubpathForEmailConfirmation(ReservationRequest.makeUrlencodedJWT
+      Get(LinkJWTRoute.computeLinkCompletepathForEmailConfirmation("",ReservationRequest.makeUrlencodedJWT
       (examplereservation))) ~> addCredentials(BasicHttpCredentials(username, userpassword)) ~> jwtRoute ~> check {
         responseAs[String] shouldEqual LinkJWTRoute.emailConfirmSuccessText
       }
@@ -185,7 +187,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
       if (database.getUnconfirmedEventID.isDefined) {
         database.create(examplereservation.toNewEventWithoutID)
       }
-      Get(LinkJWTRoute.computeLinkSubpathForSuperuserConfirmation(ConfirmationOrDeletion.makeUrlencodedJWT
+      Get(LinkJWTRoute.computeLinkCompletepathForSuperuserConfirmation("",ConfirmationOrDeletion.makeUrlencodedJWT
       (exampleconfirm(database.getUnconfirmedEventID.get)))) ~> jwtRoute ~> check {
         rejection shouldEqual authmissingreject
       }
@@ -196,7 +198,8 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
       if (database.getUnconfirmedEventID.isDefined) {
         database.create(examplereservation.toNewEventWithoutID)
       }
-      Get(LinkJWTRoute.computeLinkSubpathForSuperuserConfirmation(ConfirmationOrDeletion.makeUrlencodedJWT(exampleconfirm(database.getUnconfirmedEventID.get)))) ~> addCredentials(BasicHttpCredentials(superusername,
+      Get(LinkJWTRoute.computeLinkCompletepathForSuperuserConfirmation("", ConfirmationOrDeletion.makeUrlencodedJWT
+      (exampleconfirm(database.getUnconfirmedEventID.get)))) ~> addCredentials(BasicHttpCredentials(superusername,
         superuserpassword)) ~> jwtRoute ~> check {
         responseAs[String] shouldEqual LinkJWTRoute.confirmReservationText
       }
@@ -205,7 +208,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
 
     "be rejected if the jwt is incomplete" in {
       //This does compile, red markers are intelliJ bugs
-      val long = LinkJWTRoute.computeLinkSubpathForEmailConfirmation(ReservationRequest.makeUrlencodedJWT
+      val long = LinkJWTRoute.computeLinkCompletepathForEmailConfirmation("", ReservationRequest.makeUrlencodedJWT
       (examplereservation))
       val short = long.substring(0, long.length / 2)
       Get(short) ~> addCredentials(BasicHttpCredentials(username, userpassword)) ~> jwtRoute ~> check {

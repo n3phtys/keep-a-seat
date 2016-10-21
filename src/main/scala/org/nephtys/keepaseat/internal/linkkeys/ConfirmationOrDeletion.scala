@@ -1,5 +1,7 @@
 package org.nephtys.keepaseat.internal.linkkeys
 
+import java.security.SecureRandom
+
 import org.nephtys.cmac.{HmacValue, MacSource}
 import org.nephtys.keepaseat.Databaseable
 import org.nephtys.keepaseat.internal.eventdata.{Event, EventElementBlock}
@@ -17,6 +19,7 @@ sealed trait ConfirmationOrDeletion {
 
   def eventid : Long
 
+  def hostWithProtocol : String
 
   def email : String
 
@@ -33,7 +36,8 @@ sealed trait ConfirmationOrDeletion {
 }
 
 
-case class SimpleConfirmationOrDeletion(eventid : Long, email : String, confirmingThisReservation : Boolean,
+case class SimpleConfirmationOrDeletion(hostWithProtocol : String, eventid : Long, email : String,
+                                        confirmingThisReservation : Boolean,
 randomNumber : Long)
 extends
   ConfirmationOrDeletion {
@@ -64,7 +68,8 @@ extends
   * @param eventid
   * @param randomNumber
   */
-case class DeleteFromUserAfterCreation(eventid : Long, email : String, randomNumber: Long) extends //email + id unique
+case class DeleteFromUserAfterCreation(hostWithProtocol : String, eventid : Long, email : String, randomNumber: Long)
+  extends //email + id unique
   ConfirmationOrDeletion {
   override def confirmingThisReservation: Boolean = false
 
@@ -101,18 +106,18 @@ object ConfirmationOrDeletion {
   }
 
 
-  val seed = 42
-  val random = new Random(seed)
   def randomNumber : Long = {
-    //TODO: make really random, enough to be considered secure enough
-    random.nextLong()
+    new SecureRandom().nextLong()
   }
 
-  def fromForSuperuser(event : Event, confirm : Boolean) : ConfirmationOrDeletion = SimpleConfirmationOrDeletion(event
+  def fromForSuperuser(host : String, event : Event, confirm : Boolean) : ConfirmationOrDeletion =
+    SimpleConfirmationOrDeletion(host, event
     .id, event.email,
     confirmingThisReservation = confirm, randomNumber)
 
 
-  def fromForUser(event : Event) : ConfirmationOrDeletion = DeleteFromUserAfterCreation(event.id, event.email,
+  def fromForUser(host : String, event : Event) : ConfirmationOrDeletion = DeleteFromUserAfterCreation(host, event.id,
+    event
+    .email,
     randomNumber)
 }

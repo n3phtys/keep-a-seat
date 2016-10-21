@@ -30,7 +30,7 @@ trait UserPost {
 
   def toEventWithoutID : Event
 
-  def toReservation : SimpleReservation
+  def toReservation(host : String) : SimpleReservation
 
   def sanitizeHTML(implicit xSSCleaner: XSSCleaner) :UserPost
 }
@@ -46,6 +46,7 @@ Seq[EventElementBlock])
 
   override def toEventWithoutID: Event = Event(-1, elements, name, email, telephone, commentary, confirmedBySupseruser = false)
 
-  override def toReservation: SimpleReservation = SimpleReservation(elements, name, email, telephone, commentary,
+  override def toReservation(host : String) : SimpleReservation = SimpleReservation(host, elements, name, email,
+    telephone, commentary,
     ReservationRequest.randomNumber)
 }
