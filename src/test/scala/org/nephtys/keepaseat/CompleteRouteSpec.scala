@@ -525,8 +525,8 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
       val secondgetShouldResult: Seq[Event] = firsgetShouldResult.+:(eventwithidUnconfirmed)
       val thirdgetShouldResult: Seq[Event] = firsgetShouldResult.+:(
         eventwithidUnconfirmed.copy(confirmedBySupseruser = true))
-      def emailconfirmlink: String = mailer.notifications.filter(e => e.sumOfFlags == 1).last.links.head
-      def superuserconfirmlink: String = mailer.notifications.filter(e => e.sumOfFlags == 8).last.links.head
+      def emailconfirmlink: String = "http://"+mailer.notifications.filter(e => e.sumOfFlags == 1).last.links.head
+      def superuserconfirmlink: String = "http://"+mailer.notifications.filter(e => e.sumOfFlags == 8).last.links.head
       def freepostresponsetext: String = "You have received an email containing a link. Press that link to confirm " +
         "your email address."
       def emailconfirmresponsetext: String = LinkJWTRoute.emailConfirmSuccessText
@@ -560,6 +560,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
       //println(dbvals)
       //println(emailconfirmlink)
       //println(postFree)
+      println(emailconfirmlink)
       Get(emailconfirmlink) ~>
         addCredentials(BasicHttpCredentials(username, userpassword)) ~> route ~> check {
         responseAs[String] shouldEqual emailconfirmresponsetext
