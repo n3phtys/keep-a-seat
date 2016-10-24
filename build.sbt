@@ -1,6 +1,6 @@
 name := "keep-a-seat"
 
-version := "0.1.1"
+version := "0.2.0"
 
 scalaVersion := "2.11.8"
 
@@ -41,7 +41,7 @@ lazy val root = Project("keep-a-seat", file("."))
       "com.typesafe.akka"   %% "akka-cluster-tools" % akkaV,
       "com.lihaoyi"         %% "upickle" % upickleV,
       "com.typesafe.slick"  %% "slick" % slickV,
-      "io.spray"            %% "spray-json" % sprayV,
+      //"io.spray"            %% "spray-json" % sprayV, not used currently
       "com.h2database"      %  "h2"  % h2dbV,
       "com.googlecode.owasp-java-html-sanitizer" % "owasp-java-html-sanitizer" % htmlsanitizerV,
       "com.google.guava" % "guava" % "19.0",

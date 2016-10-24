@@ -11,11 +11,10 @@ import org.nephtys.cmac.BasicAuthHelper.LoginData
 import org.nephtys.cmac.MacSource
 import org.nephtys.keepaseat.internal.{GetRetreiveRoute, LinkJWTRoute, PostChangesRoute, StaticRoute}
 import org.nephtys.keepaseat.internal.configs.{PasswordConfig, ServerConfig}
-import org.nephtys.keepaseat.internal.eventdata.{Event, EventElementBlock, EventSprayJsonFormat}
+import org.nephtys.keepaseat.internal.eventdata.{Event, EventElementBlock}
 import org.nephtys.keepaseat.internal.linkkeys.{ConfirmationOrDeletion, ReservationRequest, SimpleConfirmationOrDeletion, SimpleReservation}
 import org.nephtys.keepaseat.internal.testmocks.{MockDatabase, MockMailer}
-import spray.json._
-import DefaultJsonProtocol._
+import upickle.default._
 import akka.http.scaladsl.model.HttpHeader.ParsingResult.Ok
 import org.nephtys.keepaseat.filter.XSSCleaner
 import org.nephtys.keepaseat.internal.posts.{SimpleSuperuserPost, SimpleUserPost, UserPost}
@@ -27,8 +26,7 @@ import scala.concurrent.duration.Duration
 /**
   * Created by nephtys on 9/28/16.
   */
-class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest with
-  EventSprayJsonFormat {
+class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest {
 
   val username = "john"
   val superusername = "superjohn"
@@ -367,7 +365,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
         addCredentials(BasicHttpCredentials(username, userpassword)) ~>
         retreiveRoute ~>
         check {
-          responseAs[String].parseJson.convertTo[Seq[Event]] shouldEqual mustVals
+          read[Seq[Event]](responseAs[String]).sortBy(_.id) shouldEqual mustVals.sortBy(_.id)
         }
     }
 
@@ -382,7 +380,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
         addCredentials(BasicHttpCredentials(username, userpassword)) ~>
         retreiveRoute ~>
         check {
-          responseAs[String].parseJson.convertTo[Seq[Event]] shouldEqual mustVals
+          read[Seq[Event]](responseAs[String]) shouldEqual mustVals
         }
     }
 
@@ -541,7 +539,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
       val max: Long = Long.MaxValue
       Get("/events" + "?from=" + min + "&to=" + max) ~>
         addCredentials(BasicHttpCredentials(username, userpassword)) ~> route ~> check {
-        responseAs[String].parseJson.convertTo[Seq[Event]].sorted shouldEqual firsgetShouldResult.sorted
+        read[Seq[Event]](responseAs[String]).sorted shouldEqual firsgetShouldResult.sorted
       }
 
       //userpost on blocked time (should be rejected)
@@ -569,7 +567,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
       //get and check that event is inserted
       Get("/events" + "?from=" + min + "&to=" + max) ~>
         addCredentials(BasicHttpCredentials(username, userpassword)) ~> route ~> check {
-        responseAs[String].parseJson.convertTo[Seq[Event]].sorted shouldEqual secondgetShouldResult.sorted
+        read[Seq[Event]](responseAs[String]).sorted shouldEqual secondgetShouldResult.sorted
       }
       //extract superuser confirm link from mailer & confirm via link
       Get(superuserconfirmlink) ~>
@@ -579,7 +577,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest w
       //get and check that event is inserted and both superuser and user received mail
       Get("/events" + "?from=" + min + "&to=" + max) ~>
         addCredentials(BasicHttpCredentials(username, userpassword)) ~> route ~> check {
-        responseAs[String].parseJson.convertTo[Seq[Event]].sorted shouldEqual thirdgetShouldResult.sorted
+        read[Seq[Event]](responseAs[String]).sorted shouldEqual thirdgetShouldResult.sorted
       }
       //println(mailer.notifications.map(_.sumOfFlags))
       mailer.notifications.apply(mailer.notifications.size - 2).sumOfFlags shouldEqual 10

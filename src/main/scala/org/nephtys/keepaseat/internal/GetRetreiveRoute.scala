@@ -1,45 +1,34 @@
 package org.nephtys.keepaseat.internal
 
-import akka.http.scaladsl.server.{Directives, Route}
+import akka.http.scaladsl.model.{ContentType, HttpEntity, HttpResponse, MediaTypes}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
-import akka.http.scaladsl.unmarshalling.FromRequestUnmarshaller
 import org.nephtys.keepaseat.Databaseable
-import org.nephtys.keepaseat.internal.configs.{Authenticators, PasswordConfig}
-import spray.json._
-import DefaultJsonProtocol._
-import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import org.nephtys.keepaseat.filter.XSSCleaner
-import org.nephtys.keepaseat.internal.eventdata.{Event, EventElementBlock, EventSprayJsonFormat}
-
-
+import org.nephtys.keepaseat.internal.configs.{Authenticators, PasswordConfig}
+import upickle.default._
 
 
 /**
   * Created by nephtys on 9/28/16.
   */
-class GetRetreiveRoute(implicit passwordConfig : PasswordConfig, database : Databaseable,
-                       xssCleaner : XSSCleaner) extends
-  Directives with
-  EventSprayJsonFormat  {
+class GetRetreiveRoute(implicit passwordConfig: PasswordConfig, database: Databaseable,
+                       xssCleaner: XSSCleaner) {
 
   def receivePathWithoutSlashes = """events"""
-  def receivePath = "/"+receivePathWithoutSlashes
 
-  def extractRoute : Route = path(receivePathWithoutSlashes) {
+  def receivePath = "/" + receivePathWithoutSlashes
+
+  def extractRoute: Route = path(receivePathWithoutSlashes) {
     authenticateBasic(passwordConfig.realmForCredentials, Authenticators.normalUserOrSuperuserAuthenticator
     (passwordConfig)) { username =>
       parameters('from.as[Long], 'to.as[Long]) { (from, to) => {
-          onSuccess(database.retrieve(from, to)) {a => {
-            complete{
-
-              //TODO: json response header
-              //TODO: upickle instead of spray
-              //TODO: sort by from smallest date ascending
-              a.map(_.cleanHTML)
-            }
+        onSuccess(database.retrieve(from, to)) { a => {
+          complete {
+            HttpResponse(entity = HttpEntity(ContentType(MediaTypes.`application/json`), write(a.sortBy(_.elements.map(_.from).min).map(_.cleanHTML))))
           }
-          }
+        }
+        }
       }
       }
     }
