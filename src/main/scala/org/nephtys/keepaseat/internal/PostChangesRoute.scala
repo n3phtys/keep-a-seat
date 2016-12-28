@@ -159,12 +159,16 @@ object PostChangesRoute {
 
   def XForwardedHostHeader = """X-Forwarded-Host"""
 
+  def extractFirstHost(commaseparatedhosts : String ) : Option[URI] = {
+    commaseparatedhosts.split(',').map(s => Try(new URI(s.trim()))).find(_.isSuccess).map(_.get)
+  }
+
   def equalOiriginAndXForwardedHostHeader(seq: Seq[HttpHeader]): Boolean = {
     val origin = seq.find(_.is(OriginHeader.toLowerCase))
     val xforwardedhost = seq.find(_.is(XForwardedHostHeader.toLowerCase))
     if (origin.isDefined && xforwardedhost.isDefined) {
-      val a = Try(new URI(origin.get.value().trim())).toOption
-      val b = Try(new URI(xforwardedhost.get.value().trim())).toOption
+      val a = extractFirstHost(origin.get.value().trim())
+      val b = extractFirstHost(xforwardedhost.get.value().trim()) // Try(new URI(xforwardedhost.get.value().trim())).toOption
       println(s"origin headers: $a vs $b")
       def defined = a.isDefined && b.isDefined
       def localhost = isLocalhost(a.get) && isLocalhost(b.get)
