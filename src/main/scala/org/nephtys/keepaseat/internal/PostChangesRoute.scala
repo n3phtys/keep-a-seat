@@ -38,14 +38,14 @@ class PostChangesRoute(implicit passwordConfig: PasswordConfig, mailer: MailNoti
             println(s"Incoming post: $jsonstring")
             Try(read[SimpleUserPost](jsonstring).sanitizeHTML.validateWithException) match {
               case Success(securedUserPost) => {
-                val host : String = headers.find(_.is(XForwardedHostHeader.toLowerCase)).get.value()
+                val hostpath : String = headers.find(_.is(RootPathHeader.toLowerCase)).get.value()
                 println("Succesful Userpost parse and validate")
                 //create jwt link
                 val event: Event = securedUserPost.toEventWithoutID
                 //is this event even still free? (tested in jwt route anyway, but could be done here in addition too)
                 onSuccess(database.couldInsert(event)) {
                   case true => {
-                    val jwtsubpathlinkEmailConfirm: String = LinkJWTRoute.computeLinkCompletepathForEmailConfirmation(host, securedUserPost.toReservation(host))
+                    val jwtsubpathlinkEmailConfirm: String = LinkJWTRoute.computeLinkCompletepathForEmailConfirmation(hostpath, securedUserPost.toReservation(hostpath))
                     //send to user to confirm
                     mailer.sendEmailConfirmToUser(jwtsubpathlinkEmailConfirm, event)
                     complete(userresponsetext)
@@ -87,12 +87,12 @@ class PostChangesRoute(implicit passwordConfig: PasswordConfig, mailer: MailNoti
                 } else if (securedSuperuserPost.confirm.isDefined) {
                   onSuccess(database.updateConfirmation(securedSuperuserPost.eventID, securedSuperuserPost.confirm.get)) {
                     case Some(event) => {
-                      val host : String = headers.find(_.is(XForwardedHostHeader.toLowerCase)).get.value()
+                      val hostpath : String = headers.find(_.is(RootPathHeader.toLowerCase)).get.value()
                       //in case of complete, write mail to user
                       if (event.confirmedBySupseruser) {
                         mailer.sendConfirmedNotificationToSuperuser(event)
                         mailer.sendConfirmedNotificationToUser(event,
-                          LinkJWTRoute.completelinkToDeleteEventFromUserAfterConfirmation(host, event))
+                          LinkJWTRoute.completelinkToDeleteEventFromUserAfterConfirmation(hostpath, event))
                       } else {
                         mailer.sendUnconfirmedNotificationToUser(event)
                       }
@@ -158,6 +158,8 @@ object PostChangesRoute {
   }
 
   def XForwardedHostHeader = """X-Forwarded-Host"""
+
+  def RootPathHeader = """X-Root-Url-Path"""
 
   def extractFirstHost(commaseparatedhosts : String ) : Option[URI] = {
     commaseparatedhosts.split(',').map(s => Try(new URI(s.trim()))).find(_.isSuccess).map(_.get)
