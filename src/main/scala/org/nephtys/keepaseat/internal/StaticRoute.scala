@@ -19,7 +19,7 @@ class StaticRoute(rootpathdir : String)(implicit serverConfigSource : ServerConf
       getFromDirectory(serverConfigSource.pathToStaticWebDirectory(rootpathdir))
     } ~ authenticateBasic(passwordConfig.realmForCredentials, Authenticators
       .normalUserOrSuperuserAuthenticator(passwordConfig)) { username => pathSingleSlash {
-      get(redirect("index.html", PermanentRedirect))
+      get(redirect("./index.html", PermanentRedirect))
     }
     }
   }
