@@ -29,10 +29,9 @@ class PostChangesRoute(implicit passwordConfig: PasswordConfig, mailer: MailNoti
 
   def extractRoute: Route = userpostroute ~ superuserpostroute
 
-  def userpostroute = path(userPostPathWithoutSlashes) {
+  def userpostroute: Route = path(userPostPathWithoutSlashes) {
     csrfCheckForSameOrigin { headers =>
-    authenticateBasic(passwordConfig.realmForCredentials, Authenticators.normalUserOrSuperuserAuthenticator
-      (passwordConfig)) { username =>
+      Authenticators.BasicAuthOrPass(passwordConfig, onlySuperusers = false) { () =>
         post {
           entity(as[String]) { jsonstring => {
             println(s"Incoming post: $jsonstring")
@@ -68,8 +67,7 @@ class PostChangesRoute(implicit passwordConfig: PasswordConfig, mailer: MailNoti
 
   def superuserpostroute: Route = path(superuserPostPathWithoutSlashes) {
     csrfCheckForSameOrigin { headers =>
-      authenticateBasic(passwordConfig.realmForCredentials+ "-adminrealm", Authenticators.onlySuperuserAuthenticator
-      (passwordConfig)) { username =>
+      Authenticators.BasicAuthOrPass(passwordConfig, onlySuperusers = false) { () =>
         post {
           entity(as[String]) { jsonstring =>
             Try(read[SimpleSuperuserPost](jsonstring).sanitizeHTML.validateWithException) match {

@@ -28,8 +28,7 @@ class LinkJWTRoute()(implicit passwordConfig: PasswordConfig, macSource: MacSour
   def extractRoute: Route = emailConfirmationRoute ~ superuserConfirmationOrDeclineRoute
 
   private def emailConfirmationRoute: Route = path(pathToEmailConfirmation) {
-    authenticateBasic(passwordConfig.realmForCredentials, Authenticators.normalUserOrSuperuserAuthenticator
-    (passwordConfig)) { username =>
+    Authenticators.BasicAuthOrPass(passwordConfig, onlySuperusers = false) { () =>
       get {
         parameter('jwt.as[String]) { urlencodedjwt => {
           Try({
@@ -72,8 +71,7 @@ class LinkJWTRoute()(implicit passwordConfig: PasswordConfig, macSource: MacSour
 
   //should not allow deletes by user after the fact
   private def superuserConfirmationOrDeclineRoute: Route = path(pathToSuperuserConfirmation) {
-    authenticateBasic(passwordConfig.realmForCredentials, Authenticators.normalUserOrSuperuserAuthenticator
-    (passwordConfig)) { username => //normal users can use this path too via their delete link.
+    Authenticators.BasicAuthOrPass(passwordConfig, onlySuperusers = false) { () => //normal users can use this path too via their delete link.
       get {
         parameter('jwt.as[String]) { urlencodedjwt => {
           try {

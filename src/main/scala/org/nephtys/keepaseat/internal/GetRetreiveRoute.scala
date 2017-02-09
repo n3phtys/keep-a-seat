@@ -17,21 +17,20 @@ class GetRetreiveRoute(implicit passwordConfig: PasswordConfig, database: Databa
 
   def receivePathWithoutSlashes = """events"""
 
-  def receivePath = "/" + receivePathWithoutSlashes
+  def receivePath: String = "/" + receivePathWithoutSlashes
 
   def extractRoute: Route = path(receivePathWithoutSlashes) {
-    authenticateBasic(passwordConfig.realmForCredentials, Authenticators.normalUserOrSuperuserAuthenticator
-    (passwordConfig)) { username =>
-      parameters('from.as[Long], 'to.as[Long]) { (from, to) => {
-        onSuccess(database.retrieve(from, to)) { a => {
-          complete {
-            HttpResponse(entity = HttpEntity(ContentType(MediaTypes.`application/json`), write(a.sortBy(_.elements.map(_.from).min).map(_.cleanHTML))))
+      Authenticators.BasicAuthOrPass(passwordConfig, onlySuperusers = false) { () =>
+        parameters('from.as[Long], 'to.as[Long]) { (from, to) => {
+          onSuccess(database.retrieve(from, to)) { a => {
+            complete {
+              HttpResponse(entity = HttpEntity(ContentType(MediaTypes.`application/json`), write(a.sortBy(_.elements.map(_.from).min).map(_.cleanHTML))))
+            }
+          }
           }
         }
         }
       }
-      }
-    }
   }
 
 

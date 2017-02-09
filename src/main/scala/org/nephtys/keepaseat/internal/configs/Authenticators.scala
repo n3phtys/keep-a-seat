@@ -1,5 +1,7 @@
 package org.nephtys.keepaseat.internal.configs
 
+import akka.http.scaladsl.server.{Directive, Route}
+import akka.http.scaladsl.server.Directives.authenticateBasic
 import akka.http.scaladsl.server.directives.Credentials
 
 /**
@@ -21,5 +23,17 @@ object Authenticators {
       case p @ Credentials.Provided(id) if id == config.superUser.username && p.verify(config.superUser.password) => Some(id)
       case _ => None
     }
+  }
+
+  def BasicAuthOrPass(passwordConfig : PasswordConfig, onlySuperusers : Boolean)(routeInner : () => Route) : Route = {
+    if (passwordConfig.hasPasswords) {
+      authenticateBasic(passwordConfig.realmForCredentials, if(onlySuperusers) onlySuperuserAuthenticator(passwordConfig) else normalUserOrSuperuserAuthenticator
+      (passwordConfig)) {
+        username => routeInner.apply()
+      }
+    } else {
+      routeInner.apply()
+    }
+
   }
 }
