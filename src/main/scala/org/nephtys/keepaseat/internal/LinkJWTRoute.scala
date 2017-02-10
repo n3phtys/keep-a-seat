@@ -2,6 +2,7 @@ package org.nephtys.keepaseat.internal
 
 import akka.http.scaladsl.server._
 import akka.actor.ActorRef
+import akka.http.scaladsl.model.{ContentTypes, HttpEntity}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.unmarshalling.FromRequestUnmarshaller
@@ -47,7 +48,7 @@ class LinkJWTRoute()(implicit passwordConfig: PasswordConfig, macSource: MacSour
                     computeLinkCompletepathForSuperuserConfirmation(host, s))
                   mailer.sendConfirmOrDeclineToSuperuser(ev, subpathlinks.head, subpathlinks.last)
                   mailer.sendNotYetConfirmedNotificationToUser(ev, completelinkToDeleteEventFromUserAfterConfirmation(host, ev))
-                  complete(emailConfirmSuccessText)
+                  LinkJWTRoute.selfClosingCompletePage(LinkJWTRoute.emailConfirmSuccessText)
                 }
                 case _ => {
                   complete(emailConfirmFailureText)
@@ -82,12 +83,13 @@ class LinkJWTRoute()(implicit passwordConfig: PasswordConfig, macSource: MacSour
                 mailer.sendConfirmedNotificationToSuperuser(event)
                 mailer.sendConfirmedNotificationToUser(event, completelinkToDeleteEventFromUserAfterConfirmation
                 (host, event))
-                complete(confirmReservationText)
+                LinkJWTRoute.selfClosingCompletePage(LinkJWTRoute.confirmReservationText)
               }
               case Some((false, event)) => {
                 mailer.sendDeclinedNotificationToSuperuser(event)
                 mailer.sendDeclinedNotificationToUser(event)
-                complete("You declined the given reservation. Everyone will receive a notification email about " +
+
+                LinkJWTRoute.selfClosingCompletePage("You declined the given reservation. Everyone will receive a notification email about " +
                   "the change.")
               }
               case None => {
@@ -108,6 +110,44 @@ class LinkJWTRoute()(implicit passwordConfig: PasswordConfig, macSource: MacSour
 }
 
 object LinkJWTRoute {
+
+  def selfClosingCompletePage(text : String) : StandardRoute = {
+    val title : String = text.take(12).mkString + "..."
+    val body : String = text
+
+    complete(HttpEntity(ContentTypes.`text/html(UTF-8)`,
+      s"""
+        |
+        |<!DOCTYPE html>
+        |<html lang="en">
+        |
+        |  <head>
+        |    <meta charset="utf-8">
+        |    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+        |    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+        |    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+        |    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+        |
+        |    <title>${title}</title>
+        |
+        |  </head>
+        |  <body>
+        |	<div class="container">
+        |
+        |
+        |	<h2>${body}</h2>
+        |   <p>This page will close itself in 5 seconds (this does not work in Firefox at this time!)</p>
+        |	</div>
+        |
+        | <script>
+        |   setTimeout("window.close()", 5000);
+        | </script>
+        |  </body>
+        |</html>
+        |
+      """.stripMargin))
+  }
+
 
   def isDebug = true
 
