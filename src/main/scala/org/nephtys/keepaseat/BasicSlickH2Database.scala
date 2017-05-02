@@ -112,8 +112,8 @@ class BasicSlickH2Database(db: Database) extends Databaseable {
     retrieveSpecific(id).flatMap(b => {
       if (b.isDefined) {
         val deleteBlocks: Future[Int] = db.run(BasicSlickH2Database.queries.removeBlocks(id))
-        val deleteEvent: Future[Int] = db.run(BasicSlickH2Database.queries.removeElement(id))
-        Future.sequence(Seq(deleteBlocks, deleteEvent)).map(i =>  b)
+        val deleteEvent: Future[_] = deleteBlocks.flatMap(t => db.run(BasicSlickH2Database.queries.removeElement(id)))
+        deleteEvent.map(i =>  b)
       } else {
         Future.successful(b)
       }
