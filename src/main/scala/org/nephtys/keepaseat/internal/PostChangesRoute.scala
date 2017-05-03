@@ -176,6 +176,7 @@ object PostChangesRoute {
       defined && (localhost || samehost)
       //make java URI class deal with this for us
     } else {
+      println(s"not both headers defined: Origin = $origin vs X-Forwarded-Host = $xforwardedhost")
       false
     }
   }
