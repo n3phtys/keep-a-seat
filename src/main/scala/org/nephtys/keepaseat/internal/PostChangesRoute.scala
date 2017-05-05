@@ -37,7 +37,7 @@ class PostChangesRoute(implicit passwordConfig: PasswordConfig, mailer: MailNoti
             println(s"Incoming post: $jsonstring")
             Try(read[SimpleUserPost](jsonstring).sanitizeHTML.validateWithException) match {
               case Success(securedUserPost) => {
-                val hostpath : String = headers.find(_.is(RootPathHeader.toLowerCase)).get.value()
+                val hostpath : String = headers.find(_.is(RootPathHeader.toLowerCase)).map(_.value()).getOrElse("localhost:8080")
                 println("Succesful Userpost parse and validate")
                 //create jwt link
                 val event: Event = securedUserPost.toEventWithoutID

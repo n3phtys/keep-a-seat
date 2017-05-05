@@ -43,13 +43,14 @@ object KeepASeat {
                          database: Databaseable,
                          emailNotifier: MailNotifiable,
                          xssCleaner: XSSCleaner
-  ): Route = {
+  ): (Route, GetRetreiveRoute, LinkJWTRoute, PostChangesRoute, StaticRoute) = {
     val retreiveRouter = new GetRetreiveRoute()
     val linkRouter = new LinkJWTRoute()
     val postRouter = new PostChangesRoute()
     val staticRouter = new StaticRoute(rootpathdir)
 
-    retreiveRouter.extractRoute ~ linkRouter.extractRoute ~ postRouter.extractRoute ~ staticRouter.extractRoute
+    (retreiveRouter.extractRoute ~ linkRouter.extractRoute ~ postRouter.extractRoute ~ staticRouter.extractRoute,
+      retreiveRouter, linkRouter, postRouter, staticRouter)
   }
 
 

@@ -1,5 +1,7 @@
 package org.nephtys.keepaseat.internal
 
+import java.util.concurrent.atomic.AtomicReference
+
 import akka.http.scaladsl.server._
 import akka.actor.ActorRef
 import akka.http.scaladsl.model.{ContentTypes, HttpEntity}
@@ -28,6 +30,9 @@ class LinkJWTRoute()(implicit passwordConfig: PasswordConfig, macSource: MacSour
 
   def extractRoute: Route = emailConfirmationRoute ~ superuserConfirmationOrDeclineRoute
 
+
+  val lastUsedHost : AtomicReference[String] = new AtomicReference[String]("localhost:8080")
+
   private def emailConfirmationRoute: Route = path(pathToEmailConfirmation) {
     Authenticators.BasicAuthOrPass(passwordConfig, onlySuperusers = false) { () =>
       get {
@@ -36,7 +41,7 @@ class LinkJWTRoute()(implicit passwordConfig: PasswordConfig, macSource: MacSour
             ReservationRequest.fromJWTString(urlencodedjwt)
           }) match {
             case Success(reservation) => {
-              val event = reservation.t.toNewEventWithoutID
+              val event: Event = reservation.t.toNewEventWithoutID
               onSuccess(database.create(event)) {
                 case Some(ev) => {
                   val host : String = reservation.t.originHostWithProtocol
@@ -44,6 +49,7 @@ class LinkJWTRoute()(implicit passwordConfig: PasswordConfig, macSource: MacSour
                   val encodedjwts: Seq[String] = Seq(true, false).map(b => ConfirmationOrDeletion.fromForSuperuser
                   (reservation.t.originHostWithProtocol, ev, b)
                     .toUrlencodedJWT)
+                  lastUsedHost.set(reservation.t.originHostWithProtocol)
                   val subpathlinks: Seq[String] = encodedjwts.map(s =>
                     computeLinkCompletepathForSuperuserConfirmation(host, s))
                   mailer.sendConfirmOrDeclineToSuperuser(ev, subpathlinks.head, subpathlinks.last)
@@ -111,46 +117,51 @@ class LinkJWTRoute()(implicit passwordConfig: PasswordConfig, macSource: MacSour
 
 object LinkJWTRoute {
 
-  def selfClosingCompletePage(text : String) : StandardRoute = {
+  def selfClosingHTML(text : String) : String = {
     val title : String = text.take(12).mkString + "..."
     val body : String = text
 
-    complete(HttpEntity(ContentTypes.`text/html(UTF-8)`,
-      s"""
-        |
+    s"""
+       |
         |<!DOCTYPE html>
-        |<html lang="en">
-        |
+       |<html lang="en">
+       |
         |  <head>
-        |    <meta charset="utf-8">
-        |    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-        |    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
-        |    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
-        |    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
-        |
+       |    <meta charset="utf-8">
+       |    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+       |    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+       |    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+       |    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+       |
         |    <title>${title}</title>
-        |
+       |
         |  </head>
-        |  <body>
-        |	<div class="container">
-        |
+       |  <body>
+       |	<div class="container">
+       |
         |
         |	<h2>${body}</h2>
-        |   <p>This page will close itself in 5 seconds (this does not work in Firefox at this time!)</p>
-        |	</div>
-        |
+       |   <p>This page will close itself in 5 seconds (this does not work in Firefox at this time!)</p>
+       |	</div>
+       |
         | <script>
-        |   setTimeout("window.close()", 5000);
-        | </script>
-        |  </body>
-        |</html>
-        |
-      """.stripMargin))
+       |   setTimeout("window.close()", 5000);
+       | </script>
+       |  </body>
+       |</html>
+       |
+      """.stripMargin
+  }
+
+  def selfClosingCompletePage(text : String) : StandardRoute = {
+
+
+    complete(HttpEntity(ContentTypes.`text/html(UTF-8)`, selfClosingHTML(text)
+      ))
   }
 
 
   def isDebug = true
-
 
 
   val pathToEmailConfirmation: String = "confirmemail"

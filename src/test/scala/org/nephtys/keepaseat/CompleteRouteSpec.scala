@@ -54,7 +54,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest {
   assert(deeperTxtString.equals("""I am so deep right now"""))
 
 
-  val indexHTMLRedirect: String = """The request, and all future requests should be repeated using <a href="index.html">this URI</a>."""
+  val indexHTMLRedirect: String = """The request, and all future requests should be repeated using <a href="./index.html">this URI</a>."""
 
 
   implicit val notifier = new MockMailer
@@ -177,7 +177,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest {
       //This does compile, red markers are intelliJ bugs
       Get(LinkJWTRoute.computeLinkCompletepathForEmailConfirmation("",ReservationRequest.makeUrlencodedJWT
       (examplereservation))) ~> addCredentials(BasicHttpCredentials(username, userpassword)) ~> jwtRoute ~> check {
-        responseAs[String] shouldEqual LinkJWTRoute.emailConfirmSuccessText
+        responseAs[String] shouldEqual LinkJWTRoute.selfClosingHTML(LinkJWTRoute.emailConfirmSuccessText)
       }
     }
 
@@ -199,7 +199,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest {
       Get(LinkJWTRoute.computeLinkCompletepathForSuperuserConfirmation("", ConfirmationOrDeletion.makeUrlencodedJWT
       (exampleconfirm(database.getUnconfirmedEventID.get)))) ~> addCredentials(BasicHttpCredentials(superusername,
         superuserpassword)) ~> jwtRoute ~> check {
-        responseAs[String] shouldEqual LinkJWTRoute.confirmReservationText
+        responseAs[String] shouldEqual LinkJWTRoute.selfClosingHTML(LinkJWTRoute.confirmReservationText)
       }
     }
 
@@ -392,6 +392,11 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest {
     case _ => throw new IllegalArgumentException()
   }
 
+  def rootpath: HttpHeader = HttpHeader.parse(PostChangesRoute.RootPathHeader, "localhost:8000") match {
+    case Ok(header, errors) => header
+    case _ => throw new IllegalArgumentException()
+  }
+
   def origin: HttpHeader = HttpHeader.parse(PostChangesRoute.OriginHeader, "localhost:8000") match {
     case Ok(header, errors) => header
     case _ => throw new IllegalArgumentException()
@@ -416,7 +421,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest {
     //Test Case 1 - correct userpostroute should lead to complete and confirm mail
     "evolve a correct userpost to a a mail with confirm link and a complete" in {
       val oldmailersize = mailer.notifications.size
-      Post(PostChangesRoute.userPostPath, correctUserpostJson) ~> addHeaders(xforwardhost, origin, xrequestedwith) ~>
+      Post(PostChangesRoute.userPostPath, correctUserpostJson) ~> addHeaders(xforwardhost, rootpath, origin, xrequestedwith) ~>
         addCredentials(BasicHttpCredentials(username, userpassword)) ~> route ~> check {
         responseAs[String] shouldEqual PostChangesRoute.userresponsetext
       }
@@ -428,7 +433,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest {
     def nonsensicaluserpostjson: String = "{'hackidiy hack' : true}"
     "reject nonsensical userposts" in {
       Post(PostChangesRoute.userPostPath, nonsensicaluserpostjson) ~>
-        addCredentials(BasicHttpCredentials(username, userpassword)) ~> addHeaders(xforwardhost, origin, xrequestedwith) ~> route ~> check {
+        addCredentials(BasicHttpCredentials(username, userpassword)) ~> addHeaders(xforwardhost, rootpath, origin, xrequestedwith) ~> route ~> check {
         handled shouldEqual false
       }
     }
@@ -460,7 +465,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest {
         .shouldEqual(false)
 
       Post(PostChangesRoute.superuserPostPath, superuserpostconfirmjson) ~>
-        addCredentials(BasicHttpCredentials(superusername, superuserpassword)) ~> addHeaders(xforwardhost, origin, xrequestedwith) ~> route ~> check {
+        addCredentials(BasicHttpCredentials(superusername, superuserpassword)) ~> addHeaders(xforwardhost, rootpath, origin, xrequestedwith) ~> route ~> check {
         responseAs[String] shouldEqual s"Event with ID = ${idToConfirmBySuperuser} was confirmed"
       }
       Await.result(database.retrieveSpecific(idToConfirmBySuperuser), Duration(1, "second")).get.confirmedBySupseruser
@@ -481,7 +486,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest {
         .shouldEqual(true)
 
       Post(PostChangesRoute.superuserPostPath, superuserpostunconfirmjson) ~>
-        addCredentials(BasicHttpCredentials(superusername, superuserpassword)) ~> addHeaders(xforwardhost, origin, xrequestedwith) ~> route ~> check {
+        addCredentials(BasicHttpCredentials(superusername, superuserpassword)) ~> addHeaders(xforwardhost, rootpath, origin, xrequestedwith) ~> route ~> check {
         responseAs[String] shouldEqual s"Event with ID = ${idToUnConfirmBySuperuser} was set to unconfirmed"
       }
       Await.result(database.retrieveSpecific(idToUnConfirmBySuperuser), Duration(1, "second")).get.confirmedBySupseruser
@@ -502,7 +507,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest {
       implicit val db = new MockDatabase()
       implicit val mailer = new MockMailer()
       //implicit val password = this.passwordConfigSource
-      val route = KeepASeat.routeDefinitions()(userPostValidators = this.validatorsUser, superuserPostValidators =
+      val (route, _, _, _,_) = KeepASeat.routeDefinitions()(userPostValidators = this.validatorsUser, superuserPostValidators =
         this.validatorsSuperuser, serverConfigSource = this.serverConfigSource,
         xssCleaner = this.xss, macSource = this.macSource,
         database = db, passwordConfigSource = this.passwordConfigSource,
@@ -544,13 +549,13 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest {
 
       //userpost on blocked time (should be rejected)
       Post("/newevent", write(postBlocked)) ~>
-        addCredentials(BasicHttpCredentials(username, userpassword)) ~> addHeaders(xforwardhost, origin, xrequestedwith) ~> route ~> check {
+        addCredentials(BasicHttpCredentials(username, userpassword)) ~> addHeaders(xforwardhost, rootpath, origin, xrequestedwith) ~> route ~> check {
         handled shouldEqual false
       }
 
       //userpost on time not blocked (should be accepted)
       Post("/newevent", write(postFree)) ~>
-        addCredentials(BasicHttpCredentials(username, userpassword)) ~> addHeaders(xforwardhost, origin, xrequestedwith) ~> route ~> check {
+        addCredentials(BasicHttpCredentials(username, userpassword)) ~> addHeaders(xforwardhost,rootpath, origin, xrequestedwith) ~> route ~> check {
         responseAs[String] shouldEqual freepostresponsetext
       }
 
@@ -561,7 +566,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest {
       println(emailconfirmlink)
       Get(emailconfirmlink) ~>
         addCredentials(BasicHttpCredentials(username, userpassword)) ~> route ~> check {
-        responseAs[String] shouldEqual emailconfirmresponsetext
+        responseAs[String] shouldEqual LinkJWTRoute.selfClosingHTML(emailconfirmresponsetext)
       }
 
       //get and check that event is inserted
@@ -572,7 +577,7 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest {
       //extract superuser confirm link from mailer & confirm via link
       Get(superuserconfirmlink) ~>
         addCredentials(BasicHttpCredentials(superusername, superuserpassword)) ~> route ~> check {
-        responseAs[String] shouldEqual superuserconfirmresponsetext
+        responseAs[String] shouldEqual LinkJWTRoute.selfClosingHTML(superuserconfirmresponsetext)
       }
       //get and check that event is inserted and both superuser and user received mail
       Get("/events" + "?from=" + min + "&to=" + max) ~>
