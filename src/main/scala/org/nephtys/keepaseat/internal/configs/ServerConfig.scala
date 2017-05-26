@@ -14,4 +14,7 @@ trait ServerConfig {
 
 
   def filepathToDatabaseWithoutFileEnding : Option[String]
+
+
+
 }

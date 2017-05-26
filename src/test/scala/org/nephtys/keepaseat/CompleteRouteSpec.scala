@@ -82,6 +82,8 @@ class CompleteRouteSpec extends WordSpec with Matchers with ScalatestRouteTest {
     override def superUser: LoginData = LoginData(superusername, superuserpassword)
 
     override def realmForCredentials(): String = "security realm for unit tests"
+
+    override def useCSRFProtection: Boolean = true
   }
 
   val staticRoute = new StaticRoute("./src/test/resources").extractRoute

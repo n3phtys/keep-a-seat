@@ -138,9 +138,10 @@ object PostChangesRoute {
   //compare Origin and X-FORWARDED-HOST headers for first CSRF Protection Stage
   //require "X-Requested-With: XMLHttpRequest" to guarantee same origin (as this is a custom header)
 
-  def csrfCheckForSameOrigin(route: scala.collection.immutable.Seq[akka.http.scaladsl.model.HttpHeader] => Route):
+  def csrfCheckForSameOrigin(route: scala.collection.immutable.Seq[akka.http.scaladsl.model.HttpHeader] => Route)(implicit passwordConfig: PasswordConfig):
   Route = {
     extractRequest { request => {
+      if (passwordConfig.useCSRFProtection) {
       if (!equalOiriginAndXForwardedHostHeader(request.headers)) {
         println("incoming post request not equalOiriginAndXForwardedHostHeader, see headers: " + request.headers)
         reject(MissingHeaderRejection(XForwardedHostHeader), MissingHeaderRejection(OriginHeader))
@@ -149,6 +150,9 @@ object PostChangesRoute {
         reject(MissingHeaderRejection(XRequestedWithHeader))
       } else {
         println("post request passed CSRF check")
+        route.apply(request.headers)
+      }
+      } else {
         route.apply(request.headers)
       }
     }

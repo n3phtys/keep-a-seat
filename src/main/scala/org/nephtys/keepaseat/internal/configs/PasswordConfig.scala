@@ -21,4 +21,7 @@ trait PasswordConfig {
   def hasPasswords : Boolean = {
     normalUser.password.nonEmpty || superUser.password.nonEmpty
   }
+
+
+  def useCSRFProtection : Boolean
 }
